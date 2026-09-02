@@ -26,7 +26,6 @@ export type LoadPhase =
 /** Worker -> main thread. */
 export type WorkerResponse =
   | { type: "status"; phase: LoadPhase }
-  | { type: "trace"; stage: string; seq: number }
   | {
       type: "ready";
       ep: EPName;

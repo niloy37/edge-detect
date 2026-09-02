@@ -48,7 +48,7 @@ export function DetectorStage({
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const imageRef = useRef<HTMLImageElement | null>(null);
+  const imageRef = useRef<ImageBitmap | null>(null);
   const rafRef = useRef<number>(0);
   const fpsRef = useRef(new FpsCounter());
   const optionsRef = useRef(options);
@@ -121,17 +121,26 @@ export function DetectorStage({
     }
 
     async function attachImage(url: string) {
-      const image = new Image();
-      image.src = url;
+      // Decoded via fetch -> blob -> createImageBitmap rather than an <img> and
+      // HTMLImageElement.decode(). decode() does not resolve in a backgrounded Chrome
+      // tab -- it simply never settles, with no error -- which stalls the whole demo
+      // for anyone who opens the link in a tab that is not in front. createImageBitmap
+      // has no such dependency, and it yields exactly the type the worker wants.
       try {
-        await image.decode();
-      } catch {
-        if (!cancelled) onSourceError("could not decode that image");
-        return;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`image request failed (${response.status})`);
+        const bitmap = await createImageBitmap(await response.blob());
+        if (cancelled) {
+          bitmap.close();
+          return;
+        }
+        imageRef.current = bitmap;
+        setDimensions({ width: bitmap.width, height: bitmap.height });
+      } catch (error) {
+        if (!cancelled) {
+          onSourceError(error instanceof Error ? error.message : "could not decode that image");
+        }
       }
-      if (cancelled) return;
-      imageRef.current = image;
-      setDimensions({ width: image.naturalWidth, height: image.naturalHeight });
     }
 
     if (source.kind === "webcam") void attachWebcam();
@@ -148,6 +157,7 @@ export function DetectorStage({
         video.removeAttribute("src");
       }
       videoRef.current = null;
+      imageRef.current?.close();
       imageRef.current = null;
     };
   }, [source.kind, source.url, onSourceError]);
@@ -160,8 +170,8 @@ export function DetectorStage({
     const media = videoRef.current ?? imageRef.current;
     if (!canvas || !media) return;
 
-    const sourceWidth = videoRef.current?.videoWidth ?? imageRef.current?.naturalWidth ?? 0;
-    const sourceHeight = videoRef.current?.videoHeight ?? imageRef.current?.naturalHeight ?? 0;
+    const sourceWidth = videoRef.current?.videoWidth ?? imageRef.current?.width ?? 0;
+    const sourceHeight = videoRef.current?.videoHeight ?? imageRef.current?.height ?? 0;
     if (!sourceWidth || !sourceHeight) return;
 
     if (canvas.width !== sourceWidth || canvas.height !== sourceHeight) {

@@ -38,14 +38,15 @@ export function unletterbox(
 /**
  * Draws a frame into a reusable canvas and emits an NCHW float32 tensor in [0,1].
  *
- * Reusing one OffscreenCanvas and one output buffer across frames is the whole
- * point of this class: allocating a 3*640*640 Float32Array per frame is ~4.9MB of
- * garbage at 30fps, which is enough to make the GC visible in the latency p95.
+ * The OffscreenCanvas is reused across frames; the output tensor deliberately is not.
+ * Handing ONNX Runtime a buffer that is overwritten on the next frame is asking for
+ * trouble, and the allocation is only paid once per frame the model actually accepts
+ * -- the render loop checks `canSubmit()` before grabbing a frame, so this runs at
+ * inference rate, not display rate.
  */
 export class Preprocessor {
   private canvas: OffscreenCanvas;
   private ctx: OffscreenCanvasRenderingContext2D;
-  private tensor: Float32Array;
   readonly inputSize: number;
 
   constructor(inputSize: number) {
@@ -54,10 +55,7 @@ export class Preprocessor {
     const ctx = this.canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) throw new Error("2D context unavailable in this worker");
     this.ctx = ctx;
-    this.tensor = new Float32Array(3 * inputSize * inputSize);
   }
-
-  /** Returns a view onto the *internal* buffer — valid until the next call. */
   run(source: ImageBitmap): { data: Float32Array; transform: LetterboxTransform } {
     const size = this.inputSize;
     const transform = computeLetterbox(source.width, source.height, size);
@@ -70,7 +68,7 @@ export class Preprocessor {
 
     const { data: rgba } = this.ctx.getImageData(0, 0, size, size);
     const plane = size * size;
-    const out = new Float32Array(3 * plane); // DIAGNOSTIC: was this.tensor
+    const out = new Float32Array(3 * plane);
     // HWC uint8 RGBA -> CHW float32 RGB, scaled to [0,1].
     for (let i = 0, px = 0; px < plane; px++, i += 4) {
       out[px] = rgba[i] / 255;

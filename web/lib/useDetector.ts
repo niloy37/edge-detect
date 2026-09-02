@@ -91,15 +91,6 @@ export function useDetector({ modelUrl, labels, ep, inputSize }: UseDetectorArgs
     detectionsRef.current = [];
     busyRef.current = false;
 
-    const dbg = ((window as unknown as { __dbg?: Record<string, unknown> }).__dbg ??= {
-      submitted: 0,
-      dropped: 0,
-      results: 0,
-      errors: [] as string[],
-      workers: 0,
-    }) as { submitted: number; dropped: number; results: number; errors: string[]; workers: number };
-    dbg.workers++;
-
     const worker = new Worker(new URL("../workers/detector.worker.ts", import.meta.url), {
       type: "module",
     });
@@ -107,10 +98,7 @@ export function useDetector({ modelUrl, labels, ep, inputSize }: UseDetectorArgs
 
     worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
       const message = event.data;
-      if (message.type === "trace") {
-        (dbg as unknown as { trace: string[] }).trace ??= [];
-        (dbg as unknown as { trace: string[] }).trace.push(`${message.seq}:${message.stage}`);
-      } else if (message.type === "status") {
+      if (message.type === "status") {
         setPhase(message.phase);
       } else if (message.type === "ready") {
         setPhase("ready");
@@ -119,7 +107,6 @@ export function useDetector({ modelUrl, labels, ep, inputSize }: UseDetectorArgs
         setLoadMs(message.loadMs);
         setReady(true);
       } else if (message.type === "result") {
-        dbg.results++;
         busyRef.current = false;
         detectionsRef.current = message.detections;
         lastTiming.current = message.timing;
@@ -127,7 +114,6 @@ export function useDetector({ modelUrl, labels, ep, inputSize }: UseDetectorArgs
         inferStats.current.push(message.timing.inference);
         fps.current.tick();
       } else {
-        dbg.errors.push(message.message);
         busyRef.current = false;
         setError(message.message);
         if (message.fatal) setReady(false);
@@ -209,15 +195,12 @@ export function useDetector({ modelUrl, labels, ep, inputSize }: UseDetectorArgs
   /** Hands a frame to the worker, or drops it if one is already in flight. */
   const submit = useCallback((bitmap: ImageBitmap, options: DetectOptions) => {
     const worker = workerRef.current;
-    const dbg = (window as unknown as { __dbg?: { submitted: number; dropped: number } }).__dbg;
     if (!worker || busyRef.current) {
       droppedRef.current++;
-      if (dbg) dbg.dropped++;
       bitmap.close();
       return false;
     }
     busyRef.current = true;
-    if (dbg) dbg.submitted++;
     const request: WorkerRequest = {
       type: "frame",
       bitmap,

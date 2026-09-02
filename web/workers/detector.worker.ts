@@ -90,35 +90,14 @@ async function detect(request: Extract<WorkerRequest, { type: "frame" }>): Promi
     return;
   }
 
-  post({ type: "trace", stage: "enter", seq: request.seq });
   const t0 = performance.now();
   const { data, transform } = preprocessor.run(request.bitmap);
-  let sum = 0;
-  let mx = 0;
-  for (let i = 0; i < data.length; i += 97) {
-    sum += data[i];
-    if (data[i] > mx) mx = data[i];
-  }
-  post({
-    type: "trace",
-    stage: `pre mean=${(sum / (data.length / 97)).toFixed(4)} max=${mx.toFixed(3)} src=${request.bitmap ? "bmp" : "none"}`,
-    seq: request.seq,
-  });
   request.bitmap.close();
   const size = preprocessor.inputSize;
   const tensor = new ort.Tensor("float32", data, [1, 3, size, size]);
   const t1 = performance.now();
 
-  post({ type: "trace", stage: "run-start", seq: request.seq });
   const output = await session.run({ [inputName]: tensor });
-  {
-    const probe = output[outputName].data as Float32Array;
-    let smax = 0;
-    for (let i = 4 * (output[outputName].dims[2] as number); i < probe.length; i++) {
-      if (probe[i] > smax) smax = probe[i];
-    }
-    post({ type: "trace", stage: `run-done scoreMax=${smax.toFixed(5)}`, seq: request.seq });
-  }
   const t2 = performance.now();
 
   const raw = output[outputName];
@@ -132,18 +111,6 @@ async function detect(request: Extract<WorkerRequest, { type: "frame" }>): Promi
     request.options,
   );
   const detections = nonMaxSuppression(candidates, request.options);
-  {
-    const v = raw.data as Float32Array;
-    post({
-      type: "trace",
-      stage:
-        `decoded cand=${candidates.length} det=${detections.length}` +
-        ` | inFP=${data[0].toFixed(4)},${data[400000].toFixed(4)},${data[1228799].toFixed(4)}` +
-        ` | outType=${raw.type} ctor=${v.constructor.name} len=${v.length}` +
-        ` | box0=${v[0].toFixed(2)},${v[1].toFixed(2)} score0=${v[4 * anchors].toFixed(4)},${v[4 * anchors + 1].toFixed(4)}`,
-      seq: request.seq,
-    });
-  }
   const t3 = performance.now();
 
   post({

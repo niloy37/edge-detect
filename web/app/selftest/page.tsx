@@ -44,12 +44,10 @@ export default function SelfTestPage() {
         });
         say(`session ok. inputs=${session.inputNames} outputs=${session.outputNames}`);
 
-        const image = new Image();
-        image.src = model.sample?.image ?? "/samples/coco80-n.jpg";
-        await image.decode();
-        say(`image ${image.naturalWidth}x${image.naturalHeight}`);
-
-        const bitmap = await createImageBitmap(image);
+        // Not HTMLImageElement.decode(): it never settles in a backgrounded tab.
+        const response = await fetch(model.sample?.image ?? "/samples/coco80-n.jpg");
+        const bitmap = await createImageBitmap(await response.blob());
+        say(`image ${bitmap.width}x${bitmap.height}`);
         const pre = new Preprocessor(640);
         const { data, transform } = pre.run(bitmap);
         let dmin = Infinity;
@@ -131,7 +129,93 @@ export default function SelfTestPage() {
             `  ${d.label} ${(d.score * 100).toFixed(0)}%  x=${d.x.toFixed(0)} y=${d.y.toFixed(0)} w=${d.w.toFixed(0)} h=${d.h.toFixed(0)}`,
           );
         }
-        say(detections.length > 0 ? "RESULT: PASS" : "RESULT: FAIL (no detections)");
+        const mainThreadOk = detections.length > 0;
+
+        // --- worker path -------------------------------------------------------
+        // Drives the real worker directly, without the render loop. requestAnimationFrame
+        // does not fire in a backgrounded tab, so an rAF-driven check silently proves
+        // nothing there; this pushes frames by hand and is therefore honest anywhere.
+        say("");
+        say("worker path:");
+        const workerDetections = await new Promise<number[]>((resolve) => {
+          const results: number[] = [];
+          const worker = new Worker(
+            new URL("../../workers/detector.worker.ts", import.meta.url),
+            { type: "module" },
+          );
+          const finish = () => {
+            worker.postMessage({ type: "dispose" });
+            worker.terminate();
+            resolve(results);
+          };
+          const timer = setTimeout(() => {
+            say("  worker timed out");
+            finish();
+          }, 45000);
+
+          let sent = 0;
+          const FRAMES = 3;
+          const pushFrame = async () => {
+            const clone = await createImageBitmap(bitmap);
+            worker.postMessage(
+              {
+                type: "frame",
+                bitmap: clone,
+                seq: sent++,
+                options: DEFAULT_DETECT_OPTIONS,
+              },
+              [clone],
+            );
+          };
+
+          worker.onerror = (event) => {
+            say(`  worker error: ${event.message}`);
+            clearTimeout(timer);
+            finish();
+          };
+          worker.onmessage = (event: MessageEvent<{ type: string; [k: string]: unknown }>) => {
+            const message = event.data;
+            if (message.type === "ready") {
+              say(`  ready: ep=${message.ep} threads=${message.threads} warmup=${Math.round(message.warmupMs as number)}ms`);
+              void pushFrame();
+            } else if (message.type === "result") {
+              const timing = message.timing as { inference: number; total: number };
+              const count = (message.detections as unknown[]).length;
+              results.push(count);
+              say(`  frame ${message.seq}: ${count} detections, inference ${timing.inference.toFixed(0)}ms`);
+              if (results.length >= FRAMES) {
+                clearTimeout(timer);
+                finish();
+              } else {
+                void pushFrame();
+              }
+            } else if (message.type === "error") {
+              say(`  worker reported: ${message.message}`);
+              clearTimeout(timer);
+              finish();
+            }
+          };
+
+          worker.postMessage({
+            type: "init",
+            modelUrl: variant.file,
+            ep: "wasm",
+            inputSize: 640,
+            labels: model.classes,
+            threads: navigator.hardwareConcurrency > 4 ? 4 : 1,
+          });
+        });
+
+        const workerOk =
+          workerDetections.length === 3 && workerDetections.every((n) => n === detections.length);
+        say("");
+        say(`main thread: ${detections.length} detections`);
+        say(`worker:      [${workerDetections.join(", ")}]`);
+        say(
+          mainThreadOk && workerOk
+            ? "RESULT: PASS (worker agrees with main thread on every frame)"
+            : `RESULT: FAIL (${!mainThreadOk ? "main thread found nothing" : "worker disagrees with main thread"})`,
+        );
       } catch (error) {
         say(`THREW: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
       }
