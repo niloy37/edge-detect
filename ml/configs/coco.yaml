@@ -1,0 +1,27 @@
+# General-purpose baseline. No fine-tuning: these are the stock COCO weights.
+# It ships as the default model so that a visitor pointing a webcam at their desk
+# always sees detections, regardless of which custom domain they picked.
+id: coco80-n
+name: COCO-80 general
+domain: General objects
+description: >-
+  Stock YOLO11n trained on COCO 2017. The control condition for every benchmark
+  on this site: any latency or accuracy claim about a custom model is only
+  meaningful next to this one.
+weights: yolo11n.pt
+imgsz: 640
+opset: 17
+train: null
+calibration:
+  # 128-image COCO subset, auto-downloaded by Ultralytics. Static INT8 PTQ needs
+  # real activations; calibrating on synthetic noise is how you get a model that
+  # benchmarks fast and detects nothing.
+  dataset: coco128
+  num_images: 96
+dataset:
+  name: COCO 2017
+  url: https://cocodataset.org/
+  license: "Images: CC BY 4.0 / Flickr terms. Weights: AGPL-3.0 (Ultralytics)."
+sample:
+  video: null
+  credit: null

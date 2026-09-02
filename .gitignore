@@ -1,0 +1,15 @@
+# Python
+ml/.venv/
+__pycache__/
+*.pyc
+# Ultralytics artifacts
+ml/runs/
+ml/datasets/
+ml/*.pt
+ml/*.onnx
+ml/bus.jpg
+# Node
+node_modules/
+.next/
+.vercel/
+*.tsbuildinfo

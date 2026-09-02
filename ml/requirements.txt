@@ -1,0 +1,11 @@
+# Training / export / quantization / benchmarking.
+# torch is installed separately from the cu128 index (see ml/README.md) so that
+# the RTX 5070 (sm_120, Blackwell) gets kernels that actually exist for it.
+ultralytics>=8.3.0
+onnx>=1.17.0
+onnxslim>=0.1.48
+onnxruntime-gpu>=1.22.0   # ships CPU + CUDA + TensorRT execution providers
+numpy>=1.26,<3
+Pillow>=10.4
+pyyaml>=6.0
+tqdm>=4.66
