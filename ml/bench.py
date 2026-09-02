@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import platform
+import os
 import statistics
 import subprocess
 import time
@@ -27,9 +28,42 @@ from typing import Any
 
 import numpy as np
 
-# Importing torch first loads the CUDA 12.8 runtime DLLs it ships into the process,
-# which is what lets onnxruntime-gpu's CUDA provider find them on Windows without a
-# separate system-wide CUDA toolkit install.
+def _register_cuda_dlls() -> list[str]:
+    """Put the pip-installed NVIDIA runtime on the DLL search path.
+
+    onnxruntime-gpu 1.29 links CUDA 13 (cublas64_13.dll and friends) while torch
+    ships CUDA 12.8, so torch's libraries do not satisfy it -- the CUDA provider
+    fails to load and ORT *silently falls back to CPU*. The wheels that do satisfy
+    it come from `pip install "onnxruntime-gpu[cuda,cudnn]"`, which drops them in
+    site-packages/nvidia/.
+
+    os.add_dll_directory alone is not enough: ORT loads its provider shim with the
+    plain search order, which consults PATH and not the added-directory list. Both
+    are set here, PATH being the one that actually works.
+    """
+    import glob
+    import site
+
+    roots = [Path(p) for p in site.getsitepackages()]
+    directories = sorted(
+        {
+            str(Path(dll).parent)
+            for root in roots
+            for dll in glob.glob(str(root / "nvidia" / "**" / "*.dll"), recursive=True)
+        }
+    )
+    if directories:
+        os.environ["PATH"] = os.pathsep.join(directories) + os.pathsep + os.environ.get("PATH", "")
+        for directory in directories:
+            try:
+                os.add_dll_directory(directory)
+            except OSError:
+                pass
+    return directories
+
+
+_CUDA_DLL_DIRS = _register_cuda_dlls()
+
 try:
     import torch  # noqa: F401
 
@@ -194,6 +228,7 @@ def main() -> None:
             "os": f"{platform.system()} {platform.release()}",
             "cpu": platform.processor(),
             "torch": getattr(__import__("torch"), "__version__", None) if _TORCH_OK else None,
+            "cudaDllDirs": len(_CUDA_DLL_DIRS),
             **gpu_info(),
         },
         "runs": runs,

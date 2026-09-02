@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-02T21:47:23+00:00",
+  "generatedAt": "2026-09-02T22:59:10+00:00",
   "methodology": {
     "batchSize": 1,
     "warmupIterations": 50,
@@ -17,10 +17,29 @@
     "os": "Windows 11",
     "cpu": "AMD64 Family 25 Model 33 Stepping 2, AuthenticAMD",
     "torch": "2.11.0+cu128",
+    "cudaDllDirs": 2,
     "gpu": "NVIDIA GeForce RTX 5070",
     "driver": "610.88"
   },
   "runs": [
+    {
+      "provider": "CPUExecutionProvider",
+      "inputSize": 320,
+      "status": "ok",
+      "activeProviders": [
+        "CPUExecutionProvider"
+      ],
+      "sessionInitMs": 138.7,
+      "p50Ms": 10.285,
+      "p95Ms": 12.179,
+      "meanMs": 10.297,
+      "minMs": 6.142,
+      "fps": 97.2,
+      "iterations": 300,
+      "precision": "fp32",
+      "modelId": "coco80-n",
+      "modelBytes": 11103084
+    },
     {
       "provider": "CPUExecutionProvider",
       "inputSize": 640,
@@ -28,12 +47,105 @@
       "activeProviders": [
         "CPUExecutionProvider"
       ],
-      "sessionInitMs": 186.3,
-      "p50Ms": 25.13,
-      "p95Ms": 27.812,
-      "meanMs": 25.249,
-      "minMs": 20.157,
-      "fps": 39.8,
+      "sessionInitMs": 140.9,
+      "p50Ms": 34.088,
+      "p95Ms": 37.244,
+      "meanMs": 33.908,
+      "minMs": 28.144,
+      "fps": 29.3,
+      "iterations": 300,
+      "precision": "fp32",
+      "modelId": "coco80-n",
+      "modelBytes": 11103084
+    },
+    {
+      "provider": "CUDAExecutionProvider",
+      "inputSize": 320,
+      "status": "ok",
+      "activeProviders": [
+        "CUDAExecutionProvider",
+        "CPUExecutionProvider"
+      ],
+      "sessionInitMs": 391.8,
+      "p50Ms": 11.903,
+      "p95Ms": 15.653,
+      "meanMs": 11.993,
+      "minMs": 7.501,
+      "fps": 84.0,
+      "iterations": 300,
+      "precision": "fp32",
+      "modelId": "coco80-n",
+      "modelBytes": 11103084
+    },
+    {
+      "provider": "CUDAExecutionProvider",
+      "inputSize": 640,
+      "status": "ok",
+      "activeProviders": [
+        "CUDAExecutionProvider",
+        "CPUExecutionProvider"
+      ],
+      "sessionInitMs": 118.9,
+      "p50Ms": 12.26,
+      "p95Ms": 15.737,
+      "meanMs": 12.551,
+      "minMs": 8.209,
+      "fps": 81.6,
+      "iterations": 300,
+      "precision": "fp32",
+      "modelId": "coco80-n",
+      "modelBytes": 11103084
+    },
+    {
+      "provider": "CPUExecutionProvider",
+      "inputSize": 320,
+      "status": "ok",
+      "activeProviders": [
+        "CPUExecutionProvider"
+      ],
+      "sessionInitMs": 304.5,
+      "p50Ms": 9.911,
+      "p95Ms": 11.643,
+      "meanMs": 9.954,
+      "minMs": 7.858,
+      "fps": 100.9,
+      "iterations": 300,
+      "precision": "int8",
+      "modelId": "coco80-n",
+      "modelBytes": 3645913
+    },
+    {
+      "provider": "CPUExecutionProvider",
+      "inputSize": 640,
+      "status": "ok",
+      "activeProviders": [
+        "CPUExecutionProvider"
+      ],
+      "sessionInitMs": 329.7,
+      "p50Ms": 29.753,
+      "p95Ms": 33.139,
+      "meanMs": 29.918,
+      "minMs": 25.531,
+      "fps": 33.6,
+      "iterations": 300,
+      "precision": "int8",
+      "modelId": "coco80-n",
+      "modelBytes": 3645913
+    },
+    {
+      "provider": "CUDAExecutionProvider",
+      "inputSize": 320,
+      "status": "ok",
+      "activeProviders": [
+        "CUDAExecutionProvider",
+        "CPUExecutionProvider"
+      ],
+      "sessionInitMs": 439.7,
+      "p50Ms": 29.294,
+      "p95Ms": 38.258,
+      "meanMs": 29.751,
+      "minMs": 20.509,
+      "fps": 34.1,
       "iterations": 300,
       "precision": "int8",
       "modelId": "coco80-n",
@@ -42,17 +154,18 @@
     {
       "provider": "CUDAExecutionProvider",
       "inputSize": 640,
-      "status": "unavailable",
-      "error": "provider not active; ORT used ['CPUExecutionProvider']",
-      "precision": "int8",
-      "modelId": "coco80-n",
-      "modelBytes": 3645913
-    },
-    {
-      "provider": "TensorrtExecutionProvider",
-      "inputSize": 640,
-      "status": "unavailable",
-      "error": "provider not active; ORT used ['CPUExecutionProvider']",
+      "status": "ok",
+      "activeProviders": [
+        "CUDAExecutionProvider",
+        "CPUExecutionProvider"
+      ],
+      "sessionInitMs": 439.7,
+      "p50Ms": 27.993,
+      "p95Ms": 33.195,
+      "meanMs": 28.367,
+      "minMs": 21.386,
+      "fps": 35.7,
+      "iterations": 300,
       "precision": "int8",
       "modelId": "coco80-n",
       "modelBytes": 3645913
