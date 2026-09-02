@@ -24,4 +24,6 @@ dataset:
   license: "Images: CC BY 4.0 / Flickr terms. Weights: AGPL-3.0 (Ultralytics)."
 sample:
   video: null
-  credit: null
+  # Shown when the visitor has no camera or denies access, so the demo is never dead.
+  image: /samples/coco80-n.jpg
+  credit: Ultralytics test image (bus.jpg)

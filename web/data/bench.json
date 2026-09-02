@@ -1,0 +1,61 @@
+{
+  "generatedAt": "2026-09-02T21:47:23+00:00",
+  "methodology": {
+    "batchSize": 1,
+    "warmupIterations": 50,
+    "timedIterations": 300,
+    "note": "Same ONNX file across all providers. Warm-up discarded. Latency is session.run() only and excludes letterbox preprocessing and NMS, both of which the browser HUD reports separately."
+  },
+  "environment": {
+    "onnxruntime": "1.29.0",
+    "availableProviders": [
+      "TensorrtExecutionProvider",
+      "CUDAExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "python": "3.12.4",
+    "os": "Windows 11",
+    "cpu": "AMD64 Family 25 Model 33 Stepping 2, AuthenticAMD",
+    "torch": "2.11.0+cu128",
+    "gpu": "NVIDIA GeForce RTX 5070",
+    "driver": "610.88"
+  },
+  "runs": [
+    {
+      "provider": "CPUExecutionProvider",
+      "inputSize": 640,
+      "status": "ok",
+      "activeProviders": [
+        "CPUExecutionProvider"
+      ],
+      "sessionInitMs": 186.3,
+      "p50Ms": 25.13,
+      "p95Ms": 27.812,
+      "meanMs": 25.249,
+      "minMs": 20.157,
+      "fps": 39.8,
+      "iterations": 300,
+      "precision": "int8",
+      "modelId": "coco80-n",
+      "modelBytes": 3645913
+    },
+    {
+      "provider": "CUDAExecutionProvider",
+      "inputSize": 640,
+      "status": "unavailable",
+      "error": "provider not active; ORT used ['CPUExecutionProvider']",
+      "precision": "int8",
+      "modelId": "coco80-n",
+      "modelBytes": 3645913
+    },
+    {
+      "provider": "TensorrtExecutionProvider",
+      "inputSize": 640,
+      "status": "unavailable",
+      "error": "provider not active; ORT used ['CPUExecutionProvider']",
+      "precision": "int8",
+      "modelId": "coco80-n",
+      "modelBytes": 3645913
+    }
+  ]
+}

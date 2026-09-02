@@ -21,6 +21,7 @@
     "@types/node": "^22.15.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "@webgpu/types": "^0.1.72",
     "tailwindcss": "^4.1.10",
     "typescript": "^5.8.0"
   }

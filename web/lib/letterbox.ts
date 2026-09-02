@@ -70,7 +70,7 @@ export class Preprocessor {
 
     const { data: rgba } = this.ctx.getImageData(0, 0, size, size);
     const plane = size * size;
-    const out = this.tensor;
+    const out = new Float32Array(3 * plane); // DIAGNOSTIC: was this.tensor
     // HWC uint8 RGBA -> CHW float32 RGB, scaled to [0,1].
     for (let i = 0, px = 0; px < plane; px++, i += 4) {
       out[px] = rgba[i] / 255;

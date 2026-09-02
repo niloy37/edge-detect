@@ -1,0 +1,156 @@
+import { SiteHeader } from "@/components/SiteHeader";
+
+export const metadata = {
+  title: "How it works — edge-detect",
+  description:
+    "The pipeline behind the demo: letterbox preprocessing, a decode/NMS implementation kept out of the ONNX graph, INT8 quantization and the head-tail bug it caused.",
+};
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-2">
+      <h2 className="text-sm font-semibold tracking-tight text-neutral-100">{title}</h2>
+      <div className="space-y-3 text-sm leading-relaxed text-neutral-400">{children}</div>
+    </section>
+  );
+}
+
+function Code({ children }: { children: React.ReactNode }) {
+  return (
+    <pre className="overflow-x-auto rounded-lg border border-neutral-800 bg-neutral-950 p-3 font-mono text-[11px] leading-relaxed text-neutral-300">
+      {children}
+    </pre>
+  );
+}
+
+export default function HowItWorksPage() {
+  return (
+    <>
+      <SiteHeader active="/how-it-works" />
+      <main className="mx-auto max-w-3xl space-y-8 px-4 py-8">
+        <header>
+          <h1 className="text-xl font-semibold tracking-tight text-neutral-100">How it works</h1>
+          <p className="mt-1.5 text-sm leading-relaxed text-neutral-400">
+            The interesting parts of this project are not the model. They are the four or five
+            decisions between a checkpoint and something that runs at speed in a stranger&rsquo;s
+            browser.
+          </p>
+        </header>
+
+        <Section title="The pipeline">
+          <Code>{`camera frame (1280x720)
+  |
+  |  createImageBitmap  -- snapshot off the main thread, transferable
+  v
+Web Worker
+  |  letterbox to NxN, pad 114, RGBA -> CHW float32 /255   [lib/letterbox.ts]
+  |  session.run()  via WebGPU or multi-threaded WASM      [onnxruntime-web]
+  |  decode [1, 84, anchors] -> candidates                 [lib/decode.ts]
+  |  class-wise NMS                                        [lib/nms.ts]
+  v
+main thread: draw last known boxes every animation frame   [DetectorStage]`}</Code>
+          <p>
+            The render loop and the detection loop are independent. Every animation frame redraws
+            the video and the most recent boxes; frames are only handed to the model when it is
+            idle, and dropped otherwise. Coupling the two — drawing only when a detection returns —
+            is why so many browser demos play back like a slideshow even though the camera feed
+            itself is smooth.
+          </p>
+        </Section>
+
+        <Section title="Why NMS is not in the graph">
+          <p>
+            Ultralytics can export with non-maximum suppression baked in. This project exports with{" "}
+            <code className="text-neutral-300">nms=False</code> and implements decode and NMS in
+            TypeScript instead.
+          </p>
+          <p>
+            An in-graph <code className="text-neutral-300">NonMaxSuppression</code> node is not
+            supported by the WebGPU execution provider, so ONNX Runtime partitions the model and
+            falls back to CPU for the tail — which means a GPU-to-CPU sync on every single frame.
+            Keeping the exported graph to pure tensor operations lets it stay GPU-resident. The cost
+            is that the decode and NMS become ours to get right, which is what{" "}
+            <code className="text-neutral-300">ml/parity_test.py</code> is for: it pins the
+            TypeScript implementation against the numpy one on fixed inputs.
+          </p>
+        </Section>
+
+        <Section title="The INT8 bug worth reading about">
+          <p>
+            Static INT8 quantization succeeded, produced a model 3x smaller, ran without error — and
+            detected absolutely nothing. No exception, no warning.
+          </p>
+          <p>The graph ends like this:</p>
+          <Code>{`Concat_26( Mul_5    -> box xywh, pixel units, range 0..640
+           Sigmoid  -> class scores,        range 0..1  ) -> output0`}</Code>
+          <p>
+            QDQ quantization assigns <em>one</em> scale per tensor, and a Concat output is one
+            tensor. Calibrated over the union range [0, 640] that scale is roughly 2.5 — so every
+            class score, all of which are below 1.0, rounds to exactly zero. The box channels are
+            large enough to survive, which is what makes the failure so quiet: the model still emits
+            perfectly plausible geometry.
+          </p>
+          <Code>{`fp32  boxes[min=2.57 max=637.18]  scores[max=0.93992]  -> 5 detections
+int8  boxes[min=0.00 max=640.05]  scores[max=0.00000]  -> 0 detections`}</Code>
+          <p>
+            The fix is to leave the detection head&rsquo;s elementwise tail in float32 — the
+            sigmoid, the DFL softmax and projection, the box arithmetic, and that final concat —
+            while all 88 backbone and neck convolutions stay INT8. Those convolutions are where the
+            time actually goes, so the speedup survives the fix. Afterwards both precisions find the
+            same objects on the same image, with scores within 0.02.
+          </p>
+        </Section>
+
+        <Section title="Cross-origin isolation">
+          <p>
+            ONNX Runtime&rsquo;s WASM backend can use multiple threads, but only through{" "}
+            <code className="text-neutral-300">SharedArrayBuffer</code>, which browsers gate behind
+            cross-origin isolation. The deployed build sends:
+          </p>
+          <Code>{`Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: credentialless`}</Code>
+          <p>
+            <code className="text-neutral-300">credentialless</code> rather than{" "}
+            <code className="text-neutral-300">require-corp</code>: the stricter value blocks every
+            cross-origin subresource that does not opt in with CORP headers, which breaks embedded
+            media for no benefit here. Without isolation the runtime silently drops to a single
+            thread and the WASM numbers look about three times worse than the machine can do — so
+            the demo shows the isolation state in the badge row rather than leaving it hidden.
+          </p>
+        </Section>
+
+        <Section title="One model file, three resolutions">
+          <p>
+            The ONNX is exported with dynamic spatial dimensions, so a single file serves 320, 480
+            and 640 inference and the resolution control is a real latency/accuracy trade-off rather
+            than three downloads. The trade-off is that the first inference at a new size re-pays
+            shape-dependent setup — a WebGPU shader recompile — which shows up as a one-off spike in
+            the p95 immediately after switching.
+          </p>
+          <p>
+            It also broke quantization tooling: ONNX Runtime&rsquo;s symbolic shape inference cannot
+            resolve dynamic H/W and raises{" "}
+            <code className="text-neutral-300">Incomplete symbolic shape inference</code>, so the
+            quantizer falls back to the optimizer-only preprocessing path.
+          </p>
+        </Section>
+
+        <Section title="Why the live demo is not a server">
+          <p>
+            There is a serverless endpoint in this project at{" "}
+            <code className="text-neutral-300">/api/py/detect</code>, running the same INT8 weights
+            through onnxruntime on CPU. It exists to make the comparison concrete, not because it is
+            the right way to serve video.
+          </p>
+          <p>
+            Per-frame server inference pays a network round trip and, on a serverless platform, an
+            occasional cold start measured in seconds. On-device inference pays neither, costs
+            nothing to host, and never transmits the frames at all. For a real-time detector that
+            argument is decisive — which is why the video path runs in your tab and the endpoint
+            accepts single images.
+          </p>
+        </Section>
+      </main>
+    </>
+  );
+}

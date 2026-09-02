@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-02T21:40:17+00:00",
+  "generatedAt": "2026-09-02T21:59:04+00:00",
   "models": [
     {
       "id": "coco80-n",
@@ -110,7 +110,11 @@
         "toothbrush"
       ],
       "status": "ready",
-      "dynamicInput": true
+      "dynamicInput": true,
+      "sample": {
+        "image": "/samples/coco80-n.jpg",
+        "credit": "Ultralytics test image (bus.jpg)"
+      }
     }
   ]
 }

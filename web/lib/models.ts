@@ -20,7 +20,7 @@ export interface ModelSpec {
   inputSize: number;
   classes: string[];
   variants: ModelVariant[];
-  sample?: { video?: string; poster?: string; credit?: string };
+  sample?: { video?: string; image?: string; credit?: string };
   dataset?: { name: string; url: string; license: string };
   status: "ready" | "pending";
 }

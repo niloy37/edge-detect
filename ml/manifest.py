@@ -52,8 +52,9 @@ def upsert_model(cfg: dict[str, Any], **fields: Any) -> dict[str, Any]:
     )
     if cfg.get("dataset"):
         entry["dataset"] = cfg["dataset"]
-    if cfg.get("sample") and cfg["sample"].get("video"):
-        entry["sample"] = cfg["sample"]
+    sample = cfg.get("sample") or {}
+    if sample.get("video") or sample.get("image"):
+        entry["sample"] = {k: v for k, v in sample.items() if v is not None}
     entry.update(fields)
     save(manifest)
     return entry

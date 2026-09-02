@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #0a0a0a;
+  color: #e5e5e5;
+}
+
+/* Range inputs default to a chunky platform thumb that looks out of place next to
+   monospace instrumentation; this trims it to a small round handle in both engines. */
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: #e5e5e5;
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 9999px;
+  background: #e5e5e5;
+  cursor: pointer;
+}
