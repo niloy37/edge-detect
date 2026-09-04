@@ -32,7 +32,6 @@ export function DemoClient() {
   const [sourceKind, setSourceKind] = useState<SourceChoice>("webcam");
   const [uploadUrl, setUploadUrl] = useState<string | null>(null);
   const [sourceError, setSourceError] = useState<string | null>(null);
-  const [sourceReady, setSourceReady] = useState(false);
   const [webgpuAvailable, setWebgpuAvailable] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -59,8 +58,9 @@ export function DemoClient() {
     warmupMs,
     loadMs,
     stats,
-    submit,
-    canSubmit,
+    beginFrame,
+    sendFrame,
+    abortFrame,
     activeEp,
     fellBackFrom,
     detectionsRef,
@@ -88,18 +88,27 @@ export function DemoClient() {
   // produces no error at all, so waiting for one is not enough: fall through to the
   // model's sample either way, so the page always demonstrates something.
   const sampleImage = model?.sample?.image;
-  const onSourceReady = useCallback(() => setSourceReady(true), []);
-  useEffect(() => setSourceReady(false), [sourceKind]);
+  // Readiness is tracked in a ref, not state, so that it cannot re-run the effect
+  // below. A deadline that restarts every time its own inputs change is a deadline
+  // that never fires -- which is exactly how this fallback used to miss.
+  const sourceReadyRef = useRef(false);
+  const onSourceReady = useCallback(() => {
+    sourceReadyRef.current = true;
+  }, []);
+
   useEffect(() => {
+    sourceReadyRef.current = false;
     if (sourceKind !== "webcam" || !sampleImage) return;
-    if (sourceError) {
-      setSourceKind("sample-image");
-      return;
-    }
-    if (sourceReady) return;
-    const timer = window.setTimeout(() => setSourceKind("sample-image"), CAMERA_ACQUIRE_DEADLINE_MS);
+    const timer = window.setTimeout(() => {
+      if (!sourceReadyRef.current) setSourceKind("sample-image");
+    }, CAMERA_ACQUIRE_DEADLINE_MS);
     return () => window.clearTimeout(timer);
-  }, [sourceKind, sourceError, sourceReady, sampleImage]);
+  }, [sourceKind, sampleImage]);
+
+  // An outright denial needs no waiting.
+  useEffect(() => {
+    if (sourceKind === "webcam" && sourceError && sampleImage) setSourceKind("sample-image");
+  }, [sourceKind, sourceError, sampleImage]);
 
   const handleUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -130,8 +139,9 @@ export function DemoClient() {
           ready={ready}
           paused={paused}
           options={options}
-          submit={submit}
-          canSubmit={canSubmit}
+          beginFrame={beginFrame}
+          sendFrame={sendFrame}
+          abortFrame={abortFrame}
           detectionsRef={detectionsRef}
           onRenderFps={setRenderFps}
           onSourceError={setSourceError}

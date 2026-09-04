@@ -161,11 +161,16 @@ export function useDetector({ modelUrl, labels, ep: requestedEp, inputSize }: Us
         fps.current.tick();
       } else {
         busyRef.current = false;
-        // The worker timed out on an inference. If we are on WebGPU there is a
-        // working alternative, so switch rather than surfacing a dead demo.
-        if (message.code === "run-timeout" && ep === "webgpu") {
-          setPhase("idle");
-          setFellBackFrom("webgpu");
+        if (message.code === "run-timeout") {
+          // WebGPU has a working alternative, so switch rather than show a dead demo.
+          if (ep === "webgpu") {
+            setPhase("idle");
+            setFellBackFrom("webgpu");
+            return;
+          }
+          // On WASM a slow device can legitimately overrun the deadline. Releasing the
+          // slot and carrying on beats declaring the session dead on one slow frame.
+          setError(message.message);
           return;
         }
         setError(message.message);
@@ -224,24 +229,37 @@ export function useDetector({ modelUrl, labels, ep: requestedEp, inputSize }: Us
   }, []);
 
   /**
-   * True when the worker could accept a frame right now.
+   * Claims the single in-flight slot, synchronously, or returns false.
    *
-   * Callers check this *before* grabbing a frame. The render loop runs at display
-   * rate while the model may only manage a few frames a second, so without this the
-   * loop allocates and immediately discards hundreds of ImageBitmaps per second --
-   * pure churn that competes with the inference it is feeding.
+   * This exists because capturing a frame is asynchronous. The obvious shape --
+   * "if the model is idle, await createImageBitmap, then submit" -- separates the
+   * check from the claim by several animation frames, so the loop starts a dozen
+   * captures before any of them marks the model busy. Claiming up front makes the
+   * guard mean what it says.
    */
-  const canSubmit = useCallback(() => workerRef.current !== null && !busyRef.current, []);
-
-  /** Hands a frame to the worker, or drops it if one is already in flight. */
-  const submit = useCallback((bitmap: ImageBitmap, options: DetectOptions) => {
-    const worker = workerRef.current;
-    if (!worker || busyRef.current) {
+  const beginFrame = useCallback(() => {
+    if (!workerRef.current || busyRef.current) {
       droppedRef.current++;
-      bitmap.close();
       return false;
     }
     busyRef.current = true;
+    return true;
+  }, []);
+
+  /** Releases a claim whose capture failed, so one bad frame cannot wedge the loop. */
+  const abortFrame = useCallback(() => {
+    busyRef.current = false;
+  }, []);
+
+  /** Hands over a frame for a slot already claimed by beginFrame. */
+  const sendFrame = useCallback((bitmap: ImageBitmap, options: DetectOptions) => {
+    const worker = workerRef.current;
+    if (!worker) {
+      // The session was torn down between the claim and the capture.
+      busyRef.current = false;
+      bitmap.close();
+      return;
+    }
     submittedRef.current++;
     const request: WorkerRequest = {
       type: "frame",
@@ -250,8 +268,7 @@ export function useDetector({ modelUrl, labels, ep: requestedEp, inputSize }: Us
       options,
     };
     worker.postMessage(request, [bitmap]);
-    return true;
-  }, [ep]);
+  }, []);
 
   return {
     ready,
@@ -264,8 +281,9 @@ export function useDetector({ modelUrl, labels, ep: requestedEp, inputSize }: Us
     warmupMs,
     loadMs,
     stats,
-    submit,
-    canSubmit,
+    beginFrame,
+    sendFrame,
+    abortFrame,
     detectionsRef,
   };
 }

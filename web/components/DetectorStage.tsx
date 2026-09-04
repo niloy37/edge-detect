@@ -19,8 +19,9 @@ interface Props {
   ready: boolean;
   paused: boolean;
   options: DetectOptions;
-  submit: (bitmap: ImageBitmap, options: DetectOptions) => boolean;
-  canSubmit: () => boolean;
+  beginFrame: () => boolean;
+  sendFrame: (bitmap: ImageBitmap, options: DetectOptions) => void;
+  abortFrame: () => void;
   detectionsRef: React.RefObject<Detection[]>;
   onRenderFps: (fps: number) => void;
   onSourceError: (message: string | null) => void;
@@ -41,8 +42,9 @@ export function DetectorStage({
   ready,
   paused,
   options,
-  submit,
-  canSubmit,
+  beginFrame,
+  sendFrame,
+  abortFrame,
   detectionsRef,
   onRenderFps,
   onSourceError,
@@ -57,17 +59,26 @@ export function DetectorStage({
   const optionsRef = useRef(options);
   const readyRef = useRef(ready);
   const pausedRef = useRef(paused);
+  // Callbacks live in refs so that the source-acquisition effect below depends only
+  // on the source itself. Its cleanup closes the ImageBitmap the render loop draws,
+  // so any spurious re-run tears down a perfectly good source mid-flight.
+  const sourceErrorRef = useRef(onSourceError);
+  const sourceReadyRef = useRef(onSourceReady);
+  const renderFpsRef = useRef(onRenderFps);
   const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null);
 
   optionsRef.current = options;
   readyRef.current = ready;
   pausedRef.current = paused;
+  sourceErrorRef.current = onSourceError;
+  sourceReadyRef.current = onSourceReady;
+  renderFpsRef.current = onRenderFps;
 
   // --- source acquisition -------------------------------------------------
   useEffect(() => {
     let cancelled = false;
     let stream: MediaStream | null = null;
-    onSourceError(null);
+    sourceErrorRef.current(null);
     setDimensions(null);
     imageRef.current = null;
     videoRef.current = null;
@@ -82,7 +93,7 @@ export function DetectorStage({
         });
       } catch (error) {
         if (!cancelled) {
-          onSourceError(
+          sourceErrorRef.current(
             error instanceof DOMException && error.name === "NotAllowedError"
               ? "Camera permission denied. Try a sample video instead."
               : `Camera unavailable: ${error instanceof Error ? error.message : String(error)}`,
@@ -99,7 +110,7 @@ export function DetectorStage({
       if (cancelled) return;
       videoRef.current = video;
       setDimensions({ width: video.videoWidth, height: video.videoHeight });
-      onSourceReady();
+      sourceReadyRef.current();
     }
 
     async function attachVideo(url: string) {
@@ -116,13 +127,13 @@ export function DetectorStage({
         });
         await video.play();
       } catch (error) {
-        if (!cancelled) onSourceError(error instanceof Error ? error.message : String(error));
+        if (!cancelled) sourceErrorRef.current(error instanceof Error ? error.message : String(error));
         return;
       }
       if (cancelled) return;
       videoRef.current = video;
       setDimensions({ width: video.videoWidth, height: video.videoHeight });
-      onSourceReady();
+      sourceReadyRef.current();
     }
 
     async function attachImage(url: string) {
@@ -141,10 +152,10 @@ export function DetectorStage({
         }
         imageRef.current = bitmap;
         setDimensions({ width: bitmap.width, height: bitmap.height });
-        onSourceReady();
+        sourceReadyRef.current();
       } catch (error) {
         if (!cancelled) {
-          onSourceError(error instanceof Error ? error.message : "could not decode that image");
+          sourceErrorRef.current(error instanceof Error ? error.message : "could not decode that image");
         }
       }
     }
@@ -166,7 +177,7 @@ export function DetectorStage({
       imageRef.current?.close();
       imageRef.current = null;
     };
-  }, [source.kind, source.url, onSourceError, onSourceReady]);
+  }, [source.kind, source.url]);
 
   // --- render + submit loop -----------------------------------------------
   const loop = useCallback(() => {
@@ -197,20 +208,22 @@ export function DetectorStage({
     const now = performance.now();
     if (now - lastFpsReport.current > 200) {
       lastFpsReport.current = now;
-      onRenderFps(fpsRef.current.fps);
+      renderFpsRef.current(fpsRef.current.fps);
     }
 
-    // Only snapshot a frame when the model can actually take one. Checking first
-    // matters: this loop runs at display rate while inference may take far longer,
-    // so grabbing unconditionally would allocate and discard a bitmap on every
-    // animation frame and starve the work it is supposed to be feeding.
-    if (!readyRef.current || pausedRef.current || !canSubmit()) return;
+    // Claim the model's single in-flight slot *before* starting the capture. The
+    // capture is async, so checking availability and then awaiting would let this
+    // loop start a new capture on every animation frame while the first is still
+    // resolving -- dozens of bitmaps in flight against a model that wanted one.
+    if (!readyRef.current || pausedRef.current || !beginFrame()) return;
     // createImageBitmap snapshots off the main thread so the worker never reads a
     // <video> that has since advanced to a different frame.
-    void createImageBitmap(media)
-      .then((bitmap) => submit(bitmap, optionsRef.current))
-      .catch(() => undefined);
-  }, [canSubmit, detectionsRef, onRenderFps, submit]);
+    createImageBitmap(media).then(
+      (bitmap) => sendFrame(bitmap, optionsRef.current),
+      // Release the claim, or one failed capture wedges the loop forever.
+      () => abortFrame(),
+    );
+  }, [abortFrame, beginFrame, detectionsRef, sendFrame]);
 
   useEffect(() => {
     rafRef.current = requestAnimationFrame(loop);
