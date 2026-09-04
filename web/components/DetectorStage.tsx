@@ -75,7 +75,14 @@ export function DetectorStage({
   renderFpsRef.current = onRenderFps;
 
   // --- source acquisition -------------------------------------------------
+  // Deliberately waits for the model to be ready before touching the camera.
+  // Starting both at once means a pending getUserMedia permission prompt overlaps
+  // ONNX Runtime bringing up its WASM thread pool, and the thread pool loses: session
+  // creation stalls until the deadline and the app falls back to a single thread,
+  // which costs about 2x on this workload. Ordering them also means the model is warm
+  // by the time the first frame exists.
   useEffect(() => {
+    if (!ready) return;
     let cancelled = false;
     let stream: MediaStream | null = null;
     sourceErrorRef.current(null);
@@ -177,7 +184,7 @@ export function DetectorStage({
       imageRef.current?.close();
       imageRef.current = null;
     };
-  }, [source.kind, source.url]);
+  }, [source.kind, source.url, ready]);
 
   // --- render + submit loop -----------------------------------------------
   const loop = useCallback(() => {
@@ -239,7 +246,11 @@ export function DetectorStage({
       />
       {!dimensions ? (
         <div className="absolute inset-0 flex items-center justify-center text-sm text-neutral-500">
-          {source.kind === "webcam" ? "Requesting camera…" : "Loading source…"}
+          {!ready
+            ? "Starting model…"
+            : source.kind === "webcam"
+              ? "Requesting camera…"
+              : "Loading source…"}
         </div>
       ) : null}
       {dimensions ? (

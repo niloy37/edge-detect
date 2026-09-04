@@ -94,6 +94,7 @@ export function useDetector({ modelUrl, labels, ep: requestedEp, inputSize }: Us
   // What the worker actually got, reported back on ready, so the UI can show the
   // truth rather than what we asked for.
   const [threads, setThreads] = useState(1);
+  const [workerIsolated, setWorkerIsolated] = useState<boolean | null>(null);
   const fallbackTimer = useRef<number | undefined>(undefined);
   const sawResult = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,6 +149,7 @@ export function useDetector({ modelUrl, labels, ep: requestedEp, inputSize }: Us
         setPhase("ready");
         window.clearTimeout(fallbackTimer.current);
         setThreads(message.threads);
+        setWorkerIsolated(message.isolated);
         setWarmupMs(message.warmupMs);
         setLoadMs(message.loadMs);
         setReady(true);
@@ -274,6 +276,7 @@ export function useDetector({ modelUrl, labels, ep: requestedEp, inputSize }: Us
     ready,
     phase,
     threads,
+    workerIsolated,
     /** The EP actually in use, which may differ from the one requested. */
     activeEp: ep,
     fellBackFrom,

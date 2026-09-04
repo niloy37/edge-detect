@@ -31,6 +31,9 @@ export type WorkerResponse =
       ep: EPName;
       /** Threads actually in use, which may be fewer than requested (see worker). */
       threads: number;
+      /** The *worker's* cross-origin isolation, which is what gates SharedArrayBuffer
+       *  for the thread pool. The window's own value can differ. */
+      isolated: boolean;
       /** Median of the warm-up runs: the honest "steady state from cold" number. */
       warmupMs: number;
       loadMs: number;

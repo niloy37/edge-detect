@@ -92,6 +92,7 @@ async function init(request: Extract<WorkerRequest, { type: "init" }>): Promise<
     type: "ready",
     ep: request.ep,
     threads: threadsInUse,
+    isolated,
     warmupMs: median(warmups),
     loadMs,
     inputName,

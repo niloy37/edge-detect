@@ -56,8 +56,12 @@ export function isCrossOriginIsolated(): boolean {
 export function suggestedThreadCount(): number {
   if (typeof navigator === "undefined") return 1;
   const cores = navigator.hardwareConcurrency || 4;
-  // ORT scales poorly past ~4 threads on this workload and oversubscribing starves
-  // the render loop, so cap rather than taking every core.
+  // Leave one core for the render loop and the page, and cap at 4: ORT scales poorly
+  // past that on this workload and oversubscribing starves the loop feeding it.
+  // Note this is whatever the browser chooses to report, which is not necessarily the
+  // machine's core count -- Chrome reports 2 in some contexts on a 24-thread CPU. One
+  // thread is the correct answer to "2 cores", so a WASM x1 badge is usually the
+  // platform being conservative rather than a fallback having fired.
   return Math.max(1, Math.min(4, cores - 1));
 }
 

@@ -54,6 +54,7 @@ export function DemoClient() {
     ready,
     phase,
     threads,
+    workerIsolated,
     error,
     warmupMs,
     loadMs,
@@ -98,12 +99,13 @@ export function DemoClient() {
 
   useEffect(() => {
     sourceReadyRef.current = false;
-    if (sourceKind !== "webcam" || !sampleImage) return;
+    // Only starts once the stage is actually allowed to request the camera.
+    if (!ready || sourceKind !== "webcam" || !sampleImage) return;
     const timer = window.setTimeout(() => {
       if (!sourceReadyRef.current) setSourceKind("sample-image");
     }, CAMERA_ACQUIRE_DEADLINE_MS);
     return () => window.clearTimeout(timer);
-  }, [sourceKind, sampleImage]);
+  }, [ready, sourceKind, sampleImage]);
 
   // An outright denial needs no waiting.
   useEffect(() => {
@@ -200,7 +202,9 @@ export function DemoClient() {
           <div className="mb-3 flex flex-wrap items-center gap-1.5">
             <Badge tone={ready ? "good" : "warn"}>{ready ? "running" : phase}</Badge>
             <Badge>{activeEpLabel}</Badge>
-            <Badge tone={isolated ? "good" : "warn"}>{isolated ? "isolated" : "1 thread"}</Badge>
+            <Badge tone={workerIsolated ?? isolated ? "good" : "warn"}>
+              {(workerIsolated ?? isolated) ? "isolated" : "not isolated"}
+            </Badge>
           </div>
 
           <div className="space-y-3">
