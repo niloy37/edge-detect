@@ -1,5 +1,7 @@
 # edge-detect
 
+[![repo](https://img.shields.io/badge/source-github-181717?logo=github)](https://github.com/niloy37/edge-detect)
+
 **A custom-trained YOLO detector, quantized to INT8, running in real time inside your browser tab.**
 
 🔗 **Live demo: _(deploy pending — see [Deploying](#deploying))_**

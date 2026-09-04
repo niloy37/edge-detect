@@ -29,7 +29,7 @@ export function SiteHeader({ active }: { active: string }) {
           ))}
         </nav>
         <a
-          href="https://github.com/niloyrahman/edge-detect"
+          href="https://github.com/niloy37/edge-detect"
           target="_blank"
           rel="noreferrer"
           className="ml-auto text-xs text-neutral-500 transition-colors hover:text-neutral-200"
