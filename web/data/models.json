@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-02T21:59:04+00:00",
+  "generatedAt": "2026-09-02T23:11:20+00:00",
   "models": [
     {
       "id": "coco80-n",
@@ -8,13 +8,13 @@
           "precision": "fp32",
           "file": "/models/coco80-n-fp32.onnx",
           "bytes": 11103084,
-          "mAP": null
+          "mAP": 0.5074
         },
         {
           "precision": "int8",
           "file": "/models/coco80-n-int8.onnx",
-          "bytes": 3645913,
-          "mAP": null
+          "bytes": 3645926,
+          "mAP": 0.40938
         }
       ],
       "name": "COCO-80 general",

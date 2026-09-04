@@ -1,0 +1,31 @@
+{
+  "models": {
+    "coco80-n": {
+      "dataset": "coco128.yaml",
+      "split": "train",
+      "imgsz": 640,
+      "note": "128-image COCO subset (coco128), evaluated on the train split it ships with. Indicative only -- useful for measuring the FP32 to INT8 delta on identical images, not for comparing against published COCO leaderboard numbers.",
+      "precisions": {
+        "fp32": {
+          "mAP50-95": 0.5074,
+          "mAP50": 0.67377,
+          "precision": 0.66771,
+          "recall": 0.59821,
+          "bytes": 11103084
+        },
+        "int8": {
+          "mAP50-95": 0.40938,
+          "mAP50": 0.55655,
+          "precision": 0.634,
+          "recall": 0.5143,
+          "bytes": 3645926
+        }
+      },
+      "int8Delta": {
+        "mAP50-95": -0.09802,
+        "sizeRatio": 3.045
+      }
+    }
+  },
+  "generatedAt": "2026-09-02T23:11:20+00:00"
+}

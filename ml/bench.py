@@ -28,6 +28,11 @@ from typing import Any
 
 import numpy as np
 
+# Where pip drops native libraries: NVIDIA's CUDA wheels under nvidia/, TensorRT's
+# under tensorrt_libs/. Both have to be on the search path before onnxruntime loads.
+_DLL_PACKAGE_ROOTS = ("nvidia", "tensorrt_libs")
+
+
 def _register_cuda_dlls() -> list[str]:
     """Put the pip-installed NVIDIA runtime on the DLL search path.
 
@@ -49,7 +54,8 @@ def _register_cuda_dlls() -> list[str]:
         {
             str(Path(dll).parent)
             for root in roots
-            for dll in glob.glob(str(root / "nvidia" / "**" / "*.dll"), recursive=True)
+            for package in _DLL_PACKAGE_ROOTS
+            for dll in glob.glob(str(root / package / "**" / "*.dll"), recursive=True)
         }
     )
     if directories:
@@ -81,11 +87,11 @@ RESULTS_PATH = Path(__file__).resolve().parent / "results" / "bench.json"
 ENGINE_CACHE = Path(__file__).resolve().parent / ".trt_cache"
 
 
-def provider_options(provider: str, input_name: str, size: int) -> dict[str, Any]:
+def provider_options(provider: str, input_name: str, size: int, precision: str) -> dict[str, Any]:
     if provider == "TensorrtExecutionProvider":
         shape = f"{input_name}:1x3x{size}x{size}"
         ENGINE_CACHE.mkdir(exist_ok=True)
-        return {
+        options: dict[str, Any] = {
             "trt_fp16_enable": True,
             # Engine builds are expensive (minutes). Cache them so a re-run measures
             # inference rather than compilation.
@@ -97,12 +103,17 @@ def provider_options(provider: str, input_name: str, size: int) -> dict[str, Any
             "trt_profile_opt_shapes": shape,
             "trt_profile_max_shapes": shape,
         }
+        if "int8" in precision:
+            # A QDQ graph carries its own scales, but the TensorRT EP still has to be
+            # told INT8 kernels are permitted or the builder refuses the network.
+            options["trt_int8_enable"] = True
+        return options
     if provider == "CUDAExecutionProvider":
         return {"device_id": 0}
     return {}
 
 
-def bench_one(model_path: Path, provider: str, size: int) -> dict[str, Any]:
+def bench_one(model_path: Path, provider: str, size: int, precision: str) -> dict[str, Any]:
     result: dict[str, Any] = {"provider": provider, "inputSize": size}
     try:
         probe = ort.InferenceSession(str(model_path), providers=["CPUExecutionProvider"])
@@ -116,7 +127,7 @@ def bench_one(model_path: Path, provider: str, size: int) -> dict[str, Any]:
         session = ort.InferenceSession(
             str(model_path),
             sess_options=options,
-            providers=[(provider, provider_options(provider, input_name, size))],
+            providers=[(provider, provider_options(provider, input_name, size, precision))],
         )
         session_ms = (time.perf_counter() - build_start) * 1000
 
@@ -182,6 +193,12 @@ def main() -> None:
     parser.add_argument("--sizes", type=int, nargs="+", default=[320, 640])
     parser.add_argument("--precisions", nargs="+", default=["fp32", "int8"])
     parser.add_argument(
+        "--append",
+        action="store_true",
+        help="merge into the existing bench.json instead of replacing it, so a matrix "
+             "can be filled in over several passes (a TensorRT engine build is slow)",
+    )
+    parser.add_argument(
         "--providers",
         nargs="+",
         default=["CPUExecutionProvider", "CUDAExecutionProvider", "TensorrtExecutionProvider"],
@@ -199,7 +216,7 @@ def main() -> None:
             for size in args.sizes:
                 label = f"{precision:>4} {provider.replace('ExecutionProvider',''):>8} @{size}"
                 print(f"[bench] {label} ...", flush=True)
-                run = bench_one(model_path, provider, size)
+                run = bench_one(model_path, provider, size, precision)
                 run["precision"] = precision
                 run["modelId"] = args.model_id
                 run["modelBytes"] = model_path.stat().st_size
@@ -208,6 +225,13 @@ def main() -> None:
                     print(f"[bench] {label}  p50={run['p50Ms']}ms  p95={run['p95Ms']}ms  {run['fps']}fps")
                 else:
                     print(f"[bench] {label}  {run['status'].upper()}: {run.get('error','')}")
+
+    if args.append and RESULTS_PATH.exists():
+        previous = json.loads(RESULTS_PATH.read_text(encoding="utf-8")).get("runs", [])
+        key = lambda r: (r["modelId"], r["precision"], r["provider"], r["inputSize"])  # noqa: E731
+        fresh = {key(r) for r in runs}
+        runs = [r for r in previous if key(r) not in fresh] + runs
+        runs.sort(key=lambda r: (r["precision"], r["provider"], r["inputSize"]))
 
     payload = {
         "generatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),

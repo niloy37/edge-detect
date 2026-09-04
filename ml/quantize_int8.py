@@ -120,21 +120,34 @@ def select_head_tail_nodes(onnx_path: Path) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", required=True, type=Path)
+    parser.add_argument(
+        "--method",
+        choices=["minmax", "entropy", "percentile"],
+        default=None,
+        help="activation calibration method; overrides the config",
+    )
+    parser.add_argument("--suffix", default="int8", help="output variant name")
+    parser.add_argument("--source", default="fp32", help="input variant name")
+    parser.add_argument(
+        "--no-manifest",
+        action="store_true",
+        help="benchmark-only build; do not register it as something the site can load",
+    )
     args = parser.parse_args()
 
     import onnxruntime as ort
-    from onnxruntime.quantization import QuantFormat, QuantType, quantize_static
+    from onnxruntime.quantization import CalibrationMethod, QuantFormat, QuantType, quantize_static
     from onnxruntime.quantization.shape_inference import quant_pre_process
 
     cfg = yaml.safe_load(args.config.read_text(encoding="utf-8"))
     model_id = cfg["id"]
     input_size = int(cfg["imgsz"])
 
-    src = manifest_mod.MODEL_DIR / f"{model_id}-fp32.onnx"
+    src = manifest_mod.MODEL_DIR / f"{model_id}-{args.source}.onnx"
     if not src.exists():
         raise FileNotFoundError(f"{src} missing -- run export_onnx.py first")
     prepped = src.with_name(f"{model_id}-fp32.prep.onnx")
-    dst = manifest_mod.MODEL_DIR / f"{model_id}-int8.onnx"
+    dst = manifest_mod.MODEL_DIR / f"{model_id}-{args.suffix}.onnx"
 
     # Symbolic shape inference + graph cleanup. Skipping the cleanup entirely is the
     # most common cause of "quantize_static succeeded but the model outputs garbage",
@@ -155,7 +168,22 @@ def main() -> None:
     images = gather_calibration_images(cfg, int((cfg.get("calibration") or {}).get("num_images", 96)))
     reader = LetterboxCalibrationReader(images, input_name, input_size)
 
-    print("[quant] running static PTQ...")
+    # MinMax takes the literal extremes seen during calibration, so one outlier
+    # activation stretches the scale and everything else loses resolution. Entropy
+    # (KL-divergence) and Percentile clip that tail instead, which usually costs a
+    # little range and buys back a lot of accuracy on detection heads.
+    method = (args.method or (cfg.get("calibration") or {}).get("method") or "minmax").lower()
+    calibrate_method = {
+        "minmax": CalibrationMethod.MinMax,
+        "entropy": CalibrationMethod.Entropy,
+        "percentile": CalibrationMethod.Percentile,
+    }[method]
+    extra_options: dict = {"ActivationSymmetric": False, "WeightSymmetric": True}
+    if method == "percentile":
+        extra_options["CalibPercentile"] = float(
+            (cfg.get("calibration") or {}).get("percentile", 99.999)
+        )
+    print(f"[quant] running static PTQ (calibration: {method})...")
     quantize_static(
         model_input=str(prepped),
         model_output=str(dst),
@@ -168,7 +196,8 @@ def main() -> None:
         # ranges per output channel, and a single per-tensor scale flattens the
         # small-object logits into noise.
         per_channel=True,
-        extra_options={"ActivationSymmetric": False, "WeightSymmetric": True},
+        calibrate_method=calibrate_method,
+        extra_options=extra_options,
     )
     prepped.unlink(missing_ok=True)
 
@@ -182,7 +211,10 @@ def main() -> None:
         out = session.run(None, {input_name: dummy})[0]
         print(f"[verify] {size}x{size} -> {out.shape}")
 
-    manifest_mod.upsert_variant(model_id, "int8", dst)
+    if args.no_manifest:
+        print("[quant] benchmark-only build; manifest untouched")
+        return
+    manifest_mod.upsert_variant(model_id, args.suffix, dst)
 
 
 if __name__ == "__main__":

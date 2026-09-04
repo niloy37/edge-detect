@@ -42,6 +42,7 @@ export function isCrossOriginIsolated(): boolean {
 }
 
 export function suggestedThreadCount(): number {
+  if (typeof navigator === "undefined") return 1;
   const cores = navigator.hardwareConcurrency || 4;
   // ORT scales poorly past ~4 threads on this workload and oversubscribing starves
   // the render loop, so cap rather than taking every core.
@@ -49,6 +50,7 @@ export function suggestedThreadCount(): number {
 }
 
 export function describeDevice(): Record<string, string | number> {
+  if (typeof navigator === "undefined") return {};
   return {
     userAgent: navigator.userAgent,
     hardwareConcurrency: navigator.hardwareConcurrency || 0,

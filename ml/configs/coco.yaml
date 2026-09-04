@@ -18,6 +18,20 @@ calibration:
   # benchmarks fast and detects nothing.
   dataset: coco128
   num_images: 96
+  # Measured on this model: MinMax 0.3980, Entropy 0.3980, Percentile 0.4094
+  # mAP50-95. MinMax stretches activation scales to fit outliers; clipping the tail
+  # at 99.999 keeps resolution where the values actually live.
+  method: percentile
+  percentile: 99.999
+eval:
+  # coco128 is a 128-image subset, not COCO val2017. Stated here and rendered on the
+  # site verbatim: "mAP on COCO" and "mAP on 128 COCO images" are different claims and
+  # only the second one is true. Point `data` at coco.yaml for the real thing (~20GB).
+  data: coco128.yaml
+  note: >-
+    128-image COCO subset (coco128), evaluated on the train split it ships with.
+    Indicative only -- useful for measuring the FP32 to INT8 delta on identical
+    images, not for comparing against published COCO leaderboard numbers.
 dataset:
   name: COCO 2017
   url: https://cocodataset.org/

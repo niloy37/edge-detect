@@ -69,9 +69,15 @@ export function useDetector({ modelUrl, labels, ep, inputSize }: UseDetectorArgs
 
   const [ready, setReady] = useState(false);
   const [phase, setPhase] = useState<LoadPhase>("idle");
-  // Thread count for the next worker. Downgraded to 1 for the rest of the session if
-  // a threaded start-up ever stalls -- see THREADED_INIT_DEADLINE_MS below.
-  const [threads, setThreads] = useState(() => suggestedThreadCount());
+  // Thread cap for the next worker: null means "whatever this device suggests".
+  // It is not seeded with suggestedThreadCount() because that reads `navigator`,
+  // and a lazy state initialiser still runs during server prerendering. Pinned to 1
+  // for the rest of the session if a threaded start-up ever stalls -- see
+  // THREADED_INIT_DEADLINE_MS below.
+  const [threadCap, setThreadCap] = useState<number | null>(null);
+  // What the worker actually got, reported back on ready, so the UI can show the
+  // truth rather than what we asked for.
+  const [threads, setThreads] = useState(1);
   const fallbackTimer = useRef<number | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [warmupMs, setWarmupMs] = useState(0);
@@ -91,6 +97,9 @@ export function useDetector({ modelUrl, labels, ep, inputSize }: UseDetectorArgs
     detectionsRef.current = [];
     busyRef.current = false;
 
+    // Safe here: effects do not run during prerendering.
+    const requestedThreads = threadCap ?? suggestedThreadCount();
+
     const worker = new Worker(new URL("../workers/detector.worker.ts", import.meta.url), {
       type: "module",
     });
@@ -103,6 +112,7 @@ export function useDetector({ modelUrl, labels, ep, inputSize }: UseDetectorArgs
       } else if (message.type === "ready") {
         setPhase("ready");
         window.clearTimeout(fallbackTimer.current);
+        setThreads(message.threads);
         setWarmupMs(message.warmupMs);
         setLoadMs(message.loadMs);
         setReady(true);
@@ -127,7 +137,7 @@ export function useDetector({ modelUrl, labels, ep, inputSize }: UseDetectorArgs
       ep,
       inputSize,
       labels,
-      threads,
+      threads: requestedThreads,
     };
     worker.postMessage(request);
 
@@ -138,10 +148,10 @@ export function useDetector({ modelUrl, labels, ep, inputSize }: UseDetectorArgs
     // crossOriginIsolated === true, while 1 thread was ready in about a second.
     // Recovery has to be a fresh worker, because ORT's WASM runtime initialises once
     // per worker and retrying inside the stalled one reuses the same broken runtime.
-    if (threads > 1) {
+    if (requestedThreads > 1) {
       fallbackTimer.current = window.setTimeout(() => {
         setPhase("retrying-single-thread");
-        setThreads(1);
+        setThreadCap(1);
       }, THREADED_INIT_DEADLINE_MS);
     }
 
@@ -154,7 +164,7 @@ export function useDetector({ modelUrl, labels, ep, inputSize }: UseDetectorArgs
     // `inputSize` is intentionally excluded: it is applied via setInputSize below
     // rather than by tearing down and reloading the session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modelUrl, ep, labels, threads]);
+  }, [modelUrl, ep, labels, threadCap]);
 
   useEffect(() => {
     if (!ready) return;

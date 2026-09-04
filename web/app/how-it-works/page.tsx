@@ -135,6 +135,39 @@ Cross-Origin-Embedder-Policy: credentialless`}</Code>
           </p>
         </Section>
 
+        <Section title="What the benchmarks actually said">
+          <p>
+            Three results changed decisions rather than decorating a page. All measured on an RTX
+            5070 at batch size 1, 50 warm-up iterations discarded, 300 timed.
+          </p>
+          <Code>{`FP32  CPU   320px 11.45ms   640px 37.95ms
+FP32  CUDA  320px 13.10ms   640px 13.88ms
+FP32  TRT   320px  4.27ms   640px  5.29ms   (static shapes: 3.15ms)
+INT8  CPU   320px 10.74ms   640px 34.31ms
+INT8  CUDA  320px 31.75ms   640px 31.04ms
+INT8  TRT   engine build rejected -- see Benchmarks`}</Code>
+          <p>
+            <strong>CUDA barely notices the difference between 320 and 640</strong> (13.10 →
+            13.88 ms) while CPU nearly quadruples. A nano model does not saturate this GPU — it is
+            bound by kernel launch overhead, not arithmetic. That is also why the CPU is
+            <em> faster</em> than CUDA at 320px.
+          </p>
+          <p>
+            <strong>INT8 is 2.3× slower than FP32 under the CUDA provider.</strong> The
+            quantize/dequantize nodes are not fused into INT8 tensor-core kernels there, so the
+            casts cost real time and buy nothing. INT8 pays off on memory-bound targets — CPU and
+            WASM, which is where this demo runs — and not on bare CUDA. Adopting INT8 everywhere on
+            the general principle that &ldquo;quantization is faster&rdquo; would have made the GPU
+            path 2.3× worse.
+          </p>
+          <p>
+            <strong>Dynamic shapes cost TensorRT about 40%</strong> — 5.29 ms against 3.15 ms for a
+            fixed-shape export. That is the price of the resolution control on this page, paid on a
+            deployment target this page does not use. Both numbers are published rather than the
+            flattering one.
+          </p>
+        </Section>
+
         <Section title="Why the live demo is not a server">
           <p>
             There is a serverless endpoint in this project at{" "}

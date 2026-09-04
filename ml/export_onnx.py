@@ -73,7 +73,12 @@ def main() -> None:
     parser.add_argument(
         "--static",
         action="store_true",
-        help="export fixed imgsz instead of dynamic spatial dims (fallback if dynamic misbehaves)",
+        help=(
+            "export fixed imgsz instead of dynamic spatial dims. Produces a "
+            "'<id>-static-fp32.onnx' benchmark variant that is deliberately kept out of "
+            "the web manifest: the site wants one file that serves 320/480/640, while "
+            "TensorRT's INT8 path requires fully specified shapes."
+        ),
     )
     args = parser.parse_args()
 
@@ -93,7 +98,8 @@ def main() -> None:
     )
 
     manifest_mod.MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    target = manifest_mod.MODEL_DIR / f"{cfg['id']}-fp32.onnx"
+    stem = f"{cfg['id']}-static-fp32" if args.static else f"{cfg['id']}-fp32"
+    target = manifest_mod.MODEL_DIR / f"{stem}.onnx"
     shutil.move(str(exported), target)
     print(f"[export] {target.name}  {target.stat().st_size / 1e6:.2f} MB")
 
@@ -101,6 +107,9 @@ def main() -> None:
 
     names = model.names
     classes = [names[i] for i in sorted(names)]
+    if args.static:
+        print("[export] static variant: not registered in the web manifest")
+        return
     manifest_mod.upsert_model(
         cfg,
         classes=classes,

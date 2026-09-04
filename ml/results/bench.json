@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-02T22:59:10+00:00",
+  "generatedAt": "2026-09-04T15:38:43+00:00",
   "methodology": {
     "batchSize": 1,
     "warmupIterations": 50,
@@ -17,7 +17,7 @@
     "os": "Windows 11",
     "cpu": "AMD64 Family 25 Model 33 Stepping 2, AuthenticAMD",
     "torch": "2.11.0+cu128",
-    "cudaDllDirs": 2,
+    "cudaDllDirs": 3,
     "gpu": "NVIDIA GeForce RTX 5070",
     "driver": "610.88"
   },
@@ -29,12 +29,12 @@
       "activeProviders": [
         "CPUExecutionProvider"
       ],
-      "sessionInitMs": 138.7,
-      "p50Ms": 10.285,
-      "p95Ms": 12.179,
-      "meanMs": 10.297,
-      "minMs": 6.142,
-      "fps": 97.2,
+      "sessionInitMs": 161.1,
+      "p50Ms": 11.449,
+      "p95Ms": 14.398,
+      "meanMs": 11.501,
+      "minMs": 6.493,
+      "fps": 87.3,
       "iterations": 300,
       "precision": "fp32",
       "modelId": "coco80-n",
@@ -47,12 +47,12 @@
       "activeProviders": [
         "CPUExecutionProvider"
       ],
-      "sessionInitMs": 140.9,
-      "p50Ms": 34.088,
-      "p95Ms": 37.244,
-      "meanMs": 33.908,
-      "minMs": 28.144,
-      "fps": 29.3,
+      "sessionInitMs": 164.7,
+      "p50Ms": 37.953,
+      "p95Ms": 43.263,
+      "meanMs": 38.188,
+      "minMs": 29.105,
+      "fps": 26.3,
       "iterations": 300,
       "precision": "fp32",
       "modelId": "coco80-n",
@@ -66,12 +66,12 @@
         "CUDAExecutionProvider",
         "CPUExecutionProvider"
       ],
-      "sessionInitMs": 391.8,
-      "p50Ms": 11.903,
-      "p95Ms": 15.653,
-      "meanMs": 11.993,
-      "minMs": 7.501,
-      "fps": 84.0,
+      "sessionInitMs": 456.4,
+      "p50Ms": 13.098,
+      "p95Ms": 16.422,
+      "meanMs": 13.297,
+      "minMs": 8.282,
+      "fps": 76.3,
       "iterations": 300,
       "precision": "fp32",
       "modelId": "coco80-n",
@@ -85,12 +85,50 @@
         "CUDAExecutionProvider",
         "CPUExecutionProvider"
       ],
-      "sessionInitMs": 118.9,
-      "p50Ms": 12.26,
-      "p95Ms": 15.737,
-      "meanMs": 12.551,
-      "minMs": 8.209,
-      "fps": 81.6,
+      "sessionInitMs": 136.3,
+      "p50Ms": 13.878,
+      "p95Ms": 17.669,
+      "meanMs": 14.138,
+      "minMs": 9.254,
+      "fps": 72.1,
+      "iterations": 300,
+      "precision": "fp32",
+      "modelId": "coco80-n",
+      "modelBytes": 11103084
+    },
+    {
+      "provider": "TensorrtExecutionProvider",
+      "inputSize": 320,
+      "status": "ok",
+      "activeProviders": [
+        "TensorrtExecutionProvider",
+        "CPUExecutionProvider"
+      ],
+      "sessionInitMs": 63838.8,
+      "p50Ms": 4.268,
+      "p95Ms": 8.018,
+      "meanMs": 4.899,
+      "minMs": 2.381,
+      "fps": 234.3,
+      "iterations": 300,
+      "precision": "fp32",
+      "modelId": "coco80-n",
+      "modelBytes": 11103084
+    },
+    {
+      "provider": "TensorrtExecutionProvider",
+      "inputSize": 640,
+      "status": "ok",
+      "activeProviders": [
+        "TensorrtExecutionProvider",
+        "CPUExecutionProvider"
+      ],
+      "sessionInitMs": 54974.8,
+      "p50Ms": 5.291,
+      "p95Ms": 7.771,
+      "meanMs": 5.505,
+      "minMs": 3.314,
+      "fps": 189.0,
       "iterations": 300,
       "precision": "fp32",
       "modelId": "coco80-n",
@@ -103,16 +141,16 @@
       "activeProviders": [
         "CPUExecutionProvider"
       ],
-      "sessionInitMs": 304.5,
-      "p50Ms": 9.911,
-      "p95Ms": 11.643,
-      "meanMs": 9.954,
-      "minMs": 7.858,
-      "fps": 100.9,
+      "sessionInitMs": 359.8,
+      "p50Ms": 10.737,
+      "p95Ms": 12.966,
+      "meanMs": 10.958,
+      "minMs": 8.704,
+      "fps": 93.1,
       "iterations": 300,
       "precision": "int8",
       "modelId": "coco80-n",
-      "modelBytes": 3645913
+      "modelBytes": 3645926
     },
     {
       "provider": "CPUExecutionProvider",
@@ -121,16 +159,16 @@
       "activeProviders": [
         "CPUExecutionProvider"
       ],
-      "sessionInitMs": 329.7,
-      "p50Ms": 29.753,
-      "p95Ms": 33.139,
-      "meanMs": 29.918,
-      "minMs": 25.531,
-      "fps": 33.6,
+      "sessionInitMs": 367.9,
+      "p50Ms": 34.308,
+      "p95Ms": 38.76,
+      "meanMs": 34.328,
+      "minMs": 28.962,
+      "fps": 29.1,
       "iterations": 300,
       "precision": "int8",
       "modelId": "coco80-n",
-      "modelBytes": 3645913
+      "modelBytes": 3645926
     },
     {
       "provider": "CUDAExecutionProvider",
@@ -140,16 +178,16 @@
         "CUDAExecutionProvider",
         "CPUExecutionProvider"
       ],
-      "sessionInitMs": 439.7,
-      "p50Ms": 29.294,
-      "p95Ms": 38.258,
-      "meanMs": 29.751,
-      "minMs": 20.509,
-      "fps": 34.1,
+      "sessionInitMs": 528.7,
+      "p50Ms": 31.752,
+      "p95Ms": 36.575,
+      "meanMs": 31.737,
+      "minMs": 23.187,
+      "fps": 31.5,
       "iterations": 300,
       "precision": "int8",
       "modelId": "coco80-n",
-      "modelBytes": 3645913
+      "modelBytes": 3645926
     },
     {
       "provider": "CUDAExecutionProvider",
@@ -159,16 +197,62 @@
         "CUDAExecutionProvider",
         "CPUExecutionProvider"
       ],
-      "sessionInitMs": 439.7,
-      "p50Ms": 27.993,
-      "p95Ms": 33.195,
-      "meanMs": 28.367,
-      "minMs": 21.386,
-      "fps": 35.7,
+      "sessionInitMs": 537.3,
+      "p50Ms": 31.037,
+      "p95Ms": 35.999,
+      "meanMs": 31.08,
+      "minMs": 23.956,
+      "fps": 32.2,
       "iterations": 300,
       "precision": "int8",
       "modelId": "coco80-n",
-      "modelBytes": 3645913
+      "modelBytes": 3645926
+    },
+    {
+      "provider": "TensorrtExecutionProvider",
+      "inputSize": 320,
+      "status": "failed",
+      "error": "Fail: [ONNXRuntimeError] : 1 : FAIL : Exception during initialization: N:\\_work\\1\\s\\onnxruntime\\core\\providers\\tensorrt\\tensorrt_execution_provider.cc:2347 onnxruntime::TensorrtExecutionProvider::GetSupportedList [ONNXRuntimeError] : 1 : FAIL : TensorRT input: /model.23/Reshape_5_output_0_pre_q has no shape specified. Please run shape inference on the onnx model first. Details can be found in http",
+      "precision": "int8",
+      "modelId": "coco80-n",
+      "modelBytes": 3645926
+    },
+    {
+      "provider": "TensorrtExecutionProvider",
+      "inputSize": 640,
+      "status": "failed",
+      "error": "Fail: [ONNXRuntimeError] : 1 : FAIL : Exception during initialization: N:\\_work\\1\\s\\onnxruntime\\core\\providers\\tensorrt\\tensorrt_execution_provider.cc:2347 onnxruntime::TensorrtExecutionProvider::GetSupportedList [ONNXRuntimeError] : 1 : FAIL : TensorRT input: /model.23/Reshape_5_output_0_pre_q has no shape specified. Please run shape inference on the onnx model first. Details can be found in http",
+      "precision": "int8",
+      "modelId": "coco80-n",
+      "modelBytes": 3645926
+    },
+    {
+      "provider": "TensorrtExecutionProvider",
+      "inputSize": 640,
+      "status": "ok",
+      "activeProviders": [
+        "TensorrtExecutionProvider",
+        "CPUExecutionProvider"
+      ],
+      "sessionInitMs": 2822.2,
+      "p50Ms": 3.145,
+      "p95Ms": 5.208,
+      "meanMs": 3.432,
+      "minMs": 2.411,
+      "fps": 318.0,
+      "iterations": 300,
+      "precision": "static-fp32",
+      "modelId": "coco80-n",
+      "modelBytes": 10741397
+    },
+    {
+      "provider": "TensorrtExecutionProvider",
+      "inputSize": 640,
+      "status": "failed",
+      "error": "Fail: [ONNXRuntimeError] : 1 : FAIL : TensorRT EP failed to create engine from network for fused node: TensorrtExecutionProvider_TRTKernel_graph_main_graph_2945179333546205375_0_0",
+      "precision": "static-int8",
+      "modelId": "coco80-n",
+      "modelBytes": 3263364
     }
   ]
 }

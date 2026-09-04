@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,13 @@ from typing import Any
 import yaml
 
 import manifest as manifest_mod
+
+# Ultralytics auto-installs missing dependencies, and validating an ONNX model makes
+# it pip-install the CPU-only `onnxruntime` package -- which overwrites the shared
+# onnxruntime.dll belonging to onnxruntime-gpu. The GPU providers then vanish and
+# every later "CUDA" benchmark silently measures CPU. Turn the auto-installer off.
+os.environ.setdefault("YOLO_AUTOINSTALL", "false")
+os.environ.setdefault("ULTRALYTICS_AUTOINSTALL", "false")
 
 RESULTS_PATH = Path(__file__).resolve().parent / "results" / "accuracy.json"
 
