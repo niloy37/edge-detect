@@ -1,4 +1,9 @@
 # Dependencies for the Vercel Python function in web/api/.
+#
+# The interpreter is pinned in .python-version. Vercel's builder resolves with uv,
+# which otherwise picks the newest CPython available -- 3.14 at time of writing --
+# and onnxruntime publishes no cp314 wheels, so the build fails at dependency
+# resolution before it ever reaches the code.
 # Deliberately minimal: onnxruntime + numpy + Pillow is ~90MB unzipped, well inside
 # the 250MB function ceiling. opencv-python alone would add ~120MB and buys nothing
 # that Pillow cannot do for a letterbox resize.
