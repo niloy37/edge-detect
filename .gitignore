@@ -13,3 +13,11 @@ node_modules/
 .next/
 .vercel/
 *.tsbuildinfo
+# ONNX external-data intermediates left behind by quant_pre_process
+ml/*.data
+# Static-shape export exists only for TensorRT benchmarking; regenerate with
+# `python export_onnx.py --config configs/coco.yaml --static`. The site never loads it.
+web/public/models/*-static-*.onnx
+# TensorRT engines are compiled for one GPU architecture and driver (sm_120 here);
+# they are a local cache, not an artifact anyone else can use.
+ml/.trt_cache/
