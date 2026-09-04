@@ -24,6 +24,7 @@ interface Props {
   detectionsRef: React.RefObject<Detection[]>;
   onRenderFps: (fps: number) => void;
   onSourceError: (message: string | null) => void;
+  onSourceReady: () => void;
 }
 
 /**
@@ -45,12 +46,14 @@ export function DetectorStage({
   detectionsRef,
   onRenderFps,
   onSourceError,
+  onSourceReady,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const imageRef = useRef<ImageBitmap | null>(null);
   const rafRef = useRef<number>(0);
   const fpsRef = useRef(new FpsCounter());
+  const lastFpsReport = useRef(0);
   const optionsRef = useRef(options);
   const readyRef = useRef(ready);
   const pausedRef = useRef(paused);
@@ -96,6 +99,7 @@ export function DetectorStage({
       if (cancelled) return;
       videoRef.current = video;
       setDimensions({ width: video.videoWidth, height: video.videoHeight });
+      onSourceReady();
     }
 
     async function attachVideo(url: string) {
@@ -118,6 +122,7 @@ export function DetectorStage({
       if (cancelled) return;
       videoRef.current = video;
       setDimensions({ width: video.videoWidth, height: video.videoHeight });
+      onSourceReady();
     }
 
     async function attachImage(url: string) {
@@ -136,6 +141,7 @@ export function DetectorStage({
         }
         imageRef.current = bitmap;
         setDimensions({ width: bitmap.width, height: bitmap.height });
+        onSourceReady();
       } catch (error) {
         if (!cancelled) {
           onSourceError(error instanceof Error ? error.message : "could not decode that image");
@@ -160,7 +166,7 @@ export function DetectorStage({
       imageRef.current?.close();
       imageRef.current = null;
     };
-  }, [source.kind, source.url, onSourceError]);
+  }, [source.kind, source.url, onSourceError, onSourceReady]);
 
   // --- render + submit loop -----------------------------------------------
   const loop = useCallback(() => {
@@ -185,7 +191,14 @@ export function DetectorStage({
     drawDetections(ctx, detectionsRef.current ?? [], 1);
 
     fpsRef.current.tick();
-    onRenderFps(fpsRef.current.fps);
+    // Report at ~5Hz, not once per animation frame. Calling a React setState 200+
+    // times a second re-renders the whole panel on every frame just to move a
+    // readout, which is a measurable tax on the loop it is measuring.
+    const now = performance.now();
+    if (now - lastFpsReport.current > 200) {
+      lastFpsReport.current = now;
+      onRenderFps(fpsRef.current.fps);
+    }
 
     // Only snapshot a frame when the model can actually take one. Checking first
     // matters: this loop runs at display rate while inference may take far longer,

@@ -25,10 +25,22 @@ export function probeWebGPU(): Promise<GPUAdapterInfo | null> {
   return webgpuProbe;
 }
 
+/**
+ * What "Auto" resolves to: WASM.
+ *
+ * Not the flashier answer, and deliberate. WebGPU is implemented, benchmarked and
+ * selectable, but on the development machine (RTX 5070, Chrome, driver 610.88) the
+ * WebGPU provider creates a session, warms up on zero tensors in ~1s, reports ready
+ * -- and then never returns from the first inference on a real frame. No error, no
+ * rejection. A visitor would see a page that loads, says "running", and draws
+ * nothing.
+ *
+ * Multi-threaded WASM is ~95ms per frame at 640px, works on every browser tested,
+ * and is verified end to end by /selftest. Defaulting to the backend that reliably
+ * produces detections is worth more than defaulting to the one with the better name.
+ */
 export async function pickExecutionProvider(preferred?: EPName): Promise<EPName> {
-  if (preferred === "wasm") return "wasm";
-  const adapter = await probeWebGPU();
-  return adapter ? "webgpu" : "wasm";
+  return preferred ?? "wasm";
 }
 
 /**

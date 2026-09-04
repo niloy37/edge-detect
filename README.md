@@ -183,6 +183,28 @@ Vercel project with **Root Directory = `web`**. The build syncs the ONNX Runtime
 `public/ort/` (`npm run sync:ort`) so nothing is fetched from a CDN at run time, and
 `next.config.mjs` sets the COOP/COEP headers that multi-threaded WASM requires.
 
+## Known defect (open)
+
+**The live demo does not yet run continuously on its own.** Detection itself is correct and
+verified — `/selftest` passes in Chrome, and manually selecting the WASM backend produces correct
+boxes (bus 93%, four people) with a populated HUD at ~200 ms/frame. Two problems remain in the React
+wiring between the render loop and the worker, and neither is in the inference path:
+
+1. **The loop stops after the first detection.** `frames sent / dropped` sticks at `1 / 0`: the
+   result arrives, `busyRef` is cleared, but the next animation frame does not submit again.
+2. **Source acquisition is racy.** The camera-permission fallback to the sample image fires on some
+   loads and not others, leaving the stage empty with no source attached.
+
+Both are bounded: the worker handles consecutive frames correctly when driven directly (three
+frames, 5 detections each, ~95 ms with 4 threads — see `/selftest`), so the fault is in
+`DetectorStage`/`useDetector` state flow, not in ONNX Runtime, the model, or the pipeline.
+
+**WebGPU is implemented but is not the default.** On the development machine the WebGPU provider
+creates a session, warms up on zero tensors in ~1 s, reports ready — and then never returns from the
+first inference on a real frame, with no error and no rejection. The worker now bounds every
+inference with a deadline and reports a timeout so the app can fall back. `Auto` resolves to WASM,
+which is verified end to end; WebGPU remains selectable and is labelled experimental.
+
 ## Known limits and what I'd do next
 
 - **The COCO row is a control, not a custom model.** Custom fine-tunes for PPE/safety, traffic and

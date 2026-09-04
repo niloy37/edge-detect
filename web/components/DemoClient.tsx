@@ -15,6 +15,11 @@ type EPChoice = "auto" | EPName;
 type SourceChoice = "webcam" | "sample-video" | "sample-image" | "upload";
 const INPUT_SIZES = [320, 480, 640] as const;
 
+/** How long to wait for the camera before showing the sample instead. Generous
+ *  enough for a visitor to read and accept the permission prompt, short enough that
+ *  an ignored prompt does not leave the demo blank. */
+const CAMERA_ACQUIRE_DEADLINE_MS = 9000;
+
 export function DemoClient() {
   const [modelId, setModelId] = useState(MODELS[0]?.id ?? "");
   const [precision, setPrecision] = useState<Precision>("int8");
@@ -27,6 +32,7 @@ export function DemoClient() {
   const [sourceKind, setSourceKind] = useState<SourceChoice>("webcam");
   const [uploadUrl, setUploadUrl] = useState<string | null>(null);
   const [sourceError, setSourceError] = useState<string | null>(null);
+  const [sourceReady, setSourceReady] = useState(false);
   const [webgpuAvailable, setWebgpuAvailable] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -37,16 +43,10 @@ export function DemoClient() {
     void probeWebGPU().then((adapter) => setWebgpuAvailable(adapter !== null));
   }, []);
 
-  // "auto" resolves only once the adapter probe lands. Until then no session is
-  // created, which avoids building a WASM session and immediately discarding it.
-  const ep: EPName | null =
-    epChoice === "auto"
-      ? webgpuAvailable === null
-        ? null
-        : webgpuAvailable
-          ? "webgpu"
-          : "wasm"
-      : epChoice;
+  // Auto resolves to WASM, not WebGPU -- see pickExecutionProvider for why. The
+  // adapter probe still runs, so the WebGPU option can be disabled on devices that
+  // do not have an adapter at all.
+  const ep: EPName = epChoice === "auto" ? "wasm" : epChoice;
 
   const labels = useMemo(() => model?.classes ?? [], [model]);
   const modelUrl = ep && variant ? variant.file : null;
@@ -61,6 +61,8 @@ export function DemoClient() {
     stats,
     submit,
     canSubmit,
+    activeEp,
+    fellBackFrom,
     detectionsRef,
   } = useDetector({
     modelUrl,
@@ -81,12 +83,23 @@ export function DemoClient() {
     return { kind: "webcam" };
   }, [sourceKind, uploadUrl, model]);
 
-  // A denied camera used to leave an empty stage and a detector with nothing to do.
-  // Fall through to the model's sample so the page still demonstrates something.
+  // A camera that is denied -- or simply never answered -- used to leave an empty
+  // stage and a detector with nothing to do. A permission prompt the visitor ignores
+  // produces no error at all, so waiting for one is not enough: fall through to the
+  // model's sample either way, so the page always demonstrates something.
   const sampleImage = model?.sample?.image;
+  const onSourceReady = useCallback(() => setSourceReady(true), []);
+  useEffect(() => setSourceReady(false), [sourceKind]);
   useEffect(() => {
-    if (sourceKind === "webcam" && sourceError && sampleImage) setSourceKind("sample-image");
-  }, [sourceKind, sourceError, sampleImage]);
+    if (sourceKind !== "webcam" || !sampleImage) return;
+    if (sourceError) {
+      setSourceKind("sample-image");
+      return;
+    }
+    if (sourceReady) return;
+    const timer = window.setTimeout(() => setSourceKind("sample-image"), CAMERA_ACQUIRE_DEADLINE_MS);
+    return () => window.clearTimeout(timer);
+  }, [sourceKind, sourceError, sourceReady, sampleImage]);
 
   const handleUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -101,9 +114,13 @@ export function DemoClient() {
   const [isolated, setIsolated] = useState(true);
   useEffect(() => setIsolated(isCrossOriginIsolated()), []);
 
-  // Reports the threads the worker actually got, not the count we asked for.
-  const activeEpLabel =
-    ep === "webgpu" ? "WebGPU" : ep === "wasm" ? "WASM x" + (ready ? threads : "?") : "resolving";
+  // Reports what is actually running -- the EP the hook settled on and the threads
+  // the worker actually got -- not what was requested.
+  const activeEpLabel = !ready
+    ? "loading"
+    : activeEp === "webgpu"
+      ? "WebGPU"
+      : "WASM x" + (ready ? threads : "?");
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -118,6 +135,7 @@ export function DemoClient() {
           detectionsRef={detectionsRef}
           onRenderFps={setRenderFps}
           onSourceError={setSourceError}
+          onSourceReady={onSourceReady}
         />
 
         <div className="flex flex-wrap items-center gap-2">
@@ -230,7 +248,9 @@ export function DemoClient() {
                     label: "WebGPU",
                     disabled: webgpuAvailable === false,
                     title:
-                      webgpuAvailable === false ? "No WebGPU adapter on this device" : undefined,
+                      webgpuAvailable === false
+                        ? "No WebGPU adapter on this device"
+                        : "Experimental: some drivers warm up and then never finish an inference",
                   },
                   { value: "wasm" as const, label: "WASM" },
                 ]}
@@ -262,6 +282,14 @@ export function DemoClient() {
         </div>
 
         <LatencyHUD stats={stats} renderFps={renderFps} warmupMs={warmupMs} loadMs={loadMs} />
+
+        {fellBackFrom === "webgpu" ? (
+          <p className="rounded-md border border-neutral-800 bg-neutral-950/60 p-3 text-[11px] leading-relaxed text-neutral-500">
+            WebGPU initialised on this device but returned no detections, so the demo switched to
+            WASM. Some drivers create and warm up a WebGPU session and then never complete a real
+            inference; falling back is better than drawing nothing.
+          </p>
+        ) : null}
 
         {!isolated ? (
           <p className="rounded-md border border-neutral-800 bg-neutral-950/60 p-3 text-[11px] leading-relaxed text-neutral-500">

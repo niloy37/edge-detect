@@ -44,4 +44,4 @@ export type WorkerResponse =
       timing: FrameTiming;
       inputSize: number;
     }
-  | { type: "error"; message: string; fatal: boolean };
+  | { type: "error"; message: string; fatal: boolean; code?: "run-timeout" };

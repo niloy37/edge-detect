@@ -58,6 +58,11 @@ export function LatencyHUD({
         <Row label="detect fps" value={stats.detectFps > 0 ? stats.detectFps.toFixed(1) : "—"} hint="Frames the model completed per second" />
         <Row label="render fps" value={renderFps > 0 ? renderFps.toFixed(0) : "—"} hint="Canvas redraws per second — decoupled from detection" />
         <Row label="objects" value={String(stats.detectionCount)} hint="Detections surviving NMS in the last frame" />
+        <Row
+          label="frames sent / dropped"
+          value={`${stats.submitted} / ${stats.dropped}`}
+          hint="Frames handed to the model, and frames skipped because it was still busy. Dropping is correct: the newest frame is the only one worth running."
+        />
       </div>
 
       <div className="mt-2 border-t border-neutral-900 pt-2">
