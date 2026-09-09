@@ -4,3 +4,12 @@ node_modules
 *.tsbuildinfo
 next-env.d.ts
 public/ort
+
+.vercel
+
+# Written by `vercel build` when it derives a Python project from requirements.txt.
+# Build outputs, not inputs -- and pinning an interpreter here would be misleading,
+# since onnxruntime 1.29 carries cp311 through cp314 and the version stopped mattering.
+pyproject.toml
+uv.lock
+.python-version

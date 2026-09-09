@@ -71,8 +71,13 @@ def _fetch_to_tmp(url: str, name: str) -> Path:
     reason, instead of there.
     """
     target = Path("/tmp") / name
+    # Re-validate a cached file rather than trusting it: an earlier run of this same
+    # fallback could have written a login page here, and a warm container would then
+    # serve that corruption forever.
     if target.exists() and target.stat().st_size > 0:
-        return target
+        if target.read_bytes()[:1] == _ONNX_MAGIC:
+            return target
+        target.unlink()
     with urllib.request.urlopen(url, timeout=20) as response:
         content_type = (response.headers.get("Content-Type") or "").lower()
         payload = response.read()
@@ -93,15 +98,22 @@ def _load() -> None:
 
     start = time.perf_counter()
 
-    manifest_path = _find_asset("data", "models.json")
-    if manifest_path is None:
-        raise RuntimeError("models.json was not bundled with the function")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    entry = next(m for m in manifest["models"] if m["id"] == MODEL_ID)
-    _labels = entry["classes"]
+    # Both assets live beside this file, put there by web/scripts/sync-fn-assets.mjs.
+    # Referencing public/ or data/ instead needs `includeFiles`, which takes a single
+    # string glob and quietly matched nothing for public/ -- which is how this endpoint
+    # ended up fetching its own model over HTTP and parsing a login page as protobuf.
+    labels_path = _find_asset("labels.json") or _find_asset("data", "models.json")
+    if labels_path is None:
+        raise RuntimeError("labels.json was not bundled with the function")
+    payload = json.loads(labels_path.read_text(encoding="utf-8"))
+    _labels = (
+        payload["classes"]
+        if "classes" in payload
+        else next(m for m in payload["models"] if m["id"] == MODEL_ID)["classes"]
+    )
 
     filename = f"{MODEL_ID}-{PRECISION}.onnx"
-    model_path = _find_asset("public", "models", filename)
+    model_path = _find_asset("model-int8.onnx") or _find_asset("public", "models", filename)
     _model_source = "bundled"
     if model_path is None:
         _model_source = "fetched"

@@ -4,11 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm run sync:ort && next build",
+    "build": "npm run sync:ort && npm run sync:fn && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "sync:ort": "node scripts/sync-ort-assets.mjs",
-    "postinstall": "node scripts/sync-ort-assets.mjs"
+    "postinstall": "node scripts/sync-ort-assets.mjs",
+    "sync:fn": "node scripts/sync-fn-assets.mjs"
   },
   "dependencies": {
     "next": "^15.3.4",

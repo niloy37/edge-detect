@@ -4,12 +4,7 @@
   "functions": {
     "api/detect.py": {
       "memory": 1024,
-      "maxDuration": 30,
-      "includeFiles": [
-        "api/_pipeline.py",
-        "data/models.json",
-        "public/models/coco80-n-int8.onnx"
-      ]
+      "maxDuration": 30
     }
   }
 }
