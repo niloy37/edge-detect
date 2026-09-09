@@ -135,6 +135,46 @@ Cross-Origin-Embedder-Policy: credentialless`}</Code>
           </p>
         </Section>
 
+        <Section title="The square tensor was wasting 44% of every frame">
+          <p>
+            The letterbox fits the frame into a square and pads the remainder grey. A 16:9 camera
+            frame therefore fills 640×360 of a 640×640 tensor — and the model pays for all 409,600
+            pixels, including the 179,200 that are only padding.
+          </p>
+          <Code>{`640x640  24.54ms   8400 anchors   100% of the tensor
+384x640  17.48ms   5040 anchors    60%   (16:9)
+480x640  20.36ms   6300 anchors    75%   (4:3)`}</Code>
+          <p>
+            The exported graph has dynamic height and width, so matching the input to the source
+            aspect needed no second model — only a stride-aligned shape computed per frame. It is
+            about 29% cheaper on a 16:9 source, and it is also <em>more accurate</em>: with less of
+            the tensor spent on padding the subject survives at a larger scale. On the sample image
+            the square input found 4 objects and the aspect-matched input found 5, with every score
+            higher — the bus went 92% to 96%, and the marginal person 45% to 65%.
+          </p>
+          <p>
+            The one cost is that changing shape re-pays shape-dependent setup in the runtime, so
+            pointing the demo at a differently-shaped source produces a one-off spike in the p95.
+          </p>
+        </Section>
+
+        <Section title="Jitter is not an accuracy problem">
+          <p>
+            Boxes shimmered around motionless objects. That reads like model uncertainty, but every
+            frame is decoded completely independently — nothing carries between them, so
+            near-identical input produces slightly different output forever. No amount of mAP fixes
+            it, because it is not a measurement error; it is the absence of any temporal model.
+          </p>
+          <p>
+            Detections are now matched across frames by IoU within a class, and matched coordinates
+            are exponentially smoothed. A track may coast for a single frame, which removes the
+            blink that happens when confidence dips just under the threshold. It is deliberately
+            not a Kalman filter — there is no motion model and no prediction, because at four
+            frames a second a wrong guess about where a box is heading looks far worse than a box
+            that lags slightly behind. Toggle it in the panel and watch a still object.
+          </p>
+        </Section>
+
         <Section title="What the benchmarks actually said">
           <p>
             Three results changed decisions rather than decorating a page. All measured on an RTX

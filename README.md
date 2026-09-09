@@ -28,6 +28,7 @@ This repository is that second half, end to end, with the failures left in.
 | `ml/` | Dataset config → fine-tune → ONNX export → INT8 PTQ → mAP eval → multi-provider benchmark |
 | `web/` | Next.js demo: worker-based inference, live latency HUD, benchmark and write-up pages |
 | `web/api/detect.py` | Vercel Python function running the same weights on CPU, for the on-device comparison |
+| `web/app/faces` | Second detector: on-device face detection with a privacy blur, same worker and decoder |
 | `web/app/selftest` | Regression check: runs the pipeline on main thread *and* in the worker, asserts they agree |
 
 ## Results
@@ -68,7 +69,21 @@ thread, ~95 ms in a worker with 4 threads. The live demo, single-threaded end to
 6.9 ms, inference 203.5 ms, decode + NMS 1.8 ms, total p50 212 ms / p95 219 ms — 3.8 detections per
 second against a 59 fps render loop, which is the point of decoupling the two.
 
-Three things in that table are worth more than the headline number:
+**Input shape**, same INT8 weights, same frame — the exported graph has dynamic H/W, so
+matching the network input to the source aspect needs no second model:
+
+| input | median | anchors | tensor vs square |
+|---|---|---|---|
+| 640×640 (square) | 24.54 ms | 8400 | 100% |
+| **384×640** (16:9 camera) | **17.48 ms** | 5040 | 60% |
+| 480×640 (4:3) | 20.36 ms | 6300 | 75% |
+
+A 16:9 frame letterboxed into a square spends **44% of every inference on grey padding**. The
+aspect-matched shape is faster *and* more accurate, because the subject survives at a larger scale
+instead of being shrunk to fit: on the sample image, square found 4 objects and 480×640 found 5,
+with every score higher — bus 92→96%, and the marginal person 45→65%.
+
+Three more things in that table are worth more than the headline number:
 
 - **CUDA is flat between 320px and 640px** (13.10 → 13.88 ms) while CPU nearly quadruples. A nano
   model does not saturate a 5070; the GPU is bound by kernel launch overhead, not arithmetic. That
@@ -119,7 +134,19 @@ reference in [`web/api/_pipeline.py`](web/api/_pipeline.py) that the serverless 
 NMS is class-wise, not global — suppressing across classes lets a car's box delete the person
 standing in front of it, which quietly costs recall in exactly the crowded scenes that matter.
 
-### 3. Two failure modes that produce no error at all
+### 3. The jitter was never an accuracy problem
+
+Boxes shimmered on motionless objects. It is tempting to read that as the model being unsure, but
+each frame is decoded completely independently — there is no temporal model at all, so identical
+input produces slightly different output and nothing carries over. No amount of mAP fixes it.
+
+[`web/lib/tracker.ts`](web/lib/tracker.ts) matches detections across frames by IoU within a class
+and exponentially smooths the matched coordinates, letting a track coast one frame so a confidence
+dip under the threshold does not blink the box out. Deliberately *not* a Kalman filter: there is no
+motion model, because a wrong prediction at 4fps looks far worse than a box that lags slightly.
+It is a toggle in the UI, so the difference is demonstrable rather than asserted.
+
+### 4. Two failure modes that produce no error at all
 
 Both cost real debugging time and neither raises anything:
 
@@ -198,6 +225,23 @@ experimental.
 `navigator.hardwareConcurrency` is whatever the browser chooses to report — Chrome reports 2 on a
 24-thread CPU in some contexts, which makes 1 the correct answer. The badge shows the threads the
 worker actually got, and the worker's own cross-origin isolation, rather than what was requested.
+
+## The faces tab
+
+A second detector at [`/faces`](web/app/faces): find faces, then blur them, entirely on-device.
+It runs the *same* worker, decoder and NMS as the object detector — only the weights and the
+overlay differ, which is the reusability claim this repo makes, demonstrated rather than stated.
+
+Two decisions worth recording:
+
+- **Detection, not recognition.** It finds *where* faces are, never *whose* they are. No identity
+  model, no embeddings, no matching. The blur is the product; a privacy tool that uploaded your
+  camera to a server would be arguing against itself.
+- **Open Images, not WIDER FACE.** WIDER FACE is the obvious dataset and nearly every face detector
+  is trained on it, but it ships under CC-BY-NC-ND — and a trained model is arguably a derivative
+  work, which is a poor foundation for weights published from a public repo. Open Images
+  annotations are CC BY 4.0 and its images CC BY 2.0. Its boxes are already normalised, so the
+  conversion to YOLO format in [`ml/prepare_data.py`](ml/prepare_data.py) is exact.
 
 ## Known limits and what I'd do next
 
