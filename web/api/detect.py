@@ -13,15 +13,22 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
-import numpy as np
-import onnxruntime as ort
+# Vercel imports this entrypoint with the working directory at /var/task, so the
+# directory holding this file is not on sys.path and a plain sibling import of
+# _pipeline raises ModuleNotFoundError at cold start -- even though the file sits
+# right next to it. It works locally only because you tend to run from inside api/.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _pipeline import decode_yolo, letterbox_image, non_max_suppression
+import numpy as np  # noqa: E402
+import onnxruntime as ort  # noqa: E402
+
+from _pipeline import decode_yolo, letterbox_image, non_max_suppression  # noqa: E402
 
 MODEL_ID = "coco80-n"
 PRECISION = "int8"

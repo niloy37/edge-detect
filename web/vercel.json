@@ -5,7 +5,7 @@
     "api/detect.py": {
       "memory": 1024,
       "maxDuration": 30,
-      "includeFiles": "{public/models/coco80-n-int8.onnx,data/models.json}"
+      "includeFiles": "{api/_pipeline.py,public/models/coco80-n-int8.onnx,data/models.json}"
     }
   }
 }
