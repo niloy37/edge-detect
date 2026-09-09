@@ -73,7 +73,11 @@ class LetterboxCalibrationReader:
         if path is None:
             return None
         with Image.open(path) as im:
-            tensor, _ = letterbox_image(im, self.input_size)
+            # Fixed square shape for every calibration sample. Inference picks a shape
+            # per frame to match the source aspect, but the calibrator stacks all the
+            # samples together, so they have to agree. Activation ranges are what is
+            # being measured here and they do not depend on the spatial dims.
+            tensor, _ = letterbox_image(im, self.input_size, shape=(self.input_size, self.input_size))
         return {self.input_name: tensor.astype(np.float32)}
 
     def rewind(self):

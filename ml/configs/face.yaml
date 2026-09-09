@@ -58,5 +58,11 @@ dataset:
 
 sample:
   video: null
-  image: /samples/face-n.jpg
-  credit: Open Images validation image (CC BY 2.0)
+  # Reuses the image the object-detection tab already ships. Deliberate: the face
+  # datasets are full of family snapshots and photographs of children, and a portfolio
+  # site is the wrong place to feature strangers' faces. This one is a public street
+  # scene already published in this repo. It contains exactly two camera-facing faces
+  # and the model finds both at 0.77-0.80 -- the other two people are turned away, so
+  # two is the correct answer rather than a miss. The webcam is the real demo.
+  image: /samples/coco80-n.jpg
+  credit: Ultralytics test image (bus.jpg)

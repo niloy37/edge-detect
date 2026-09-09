@@ -66,13 +66,23 @@ def compute_letterbox(
     )
 
 
-def letterbox_image(image: Image.Image, long_side: int) -> tuple[np.ndarray, LetterboxTransform]:
+def letterbox_image(
+    image: Image.Image,
+    long_side: int,
+    shape: tuple[int, int] | None = None,
+) -> tuple[np.ndarray, LetterboxTransform]:
     """Returns an NCHW float32 tensor in [0,1] plus the transform needed to invert it.
 
     `long_side` is the longer network dimension; the shorter one follows the source
-    aspect, so the tensor carries image instead of grey padding."""
+    aspect, so the tensor carries image instead of grey padding.
+
+    `shape` overrides that with an explicit (width, height). Quantization calibration
+    needs it: the calibrator stacks the activations from every sample into one array,
+    so a batch of differently-shaped inputs -- which aspect-matching produces by
+    definition -- fails with an inhomogeneous-shape error before it collects a single
+    range."""
     image = image.convert("RGB")
-    input_w, input_h = fit_to_stride(long_side, image.width, image.height)
+    input_w, input_h = shape if shape is not None else fit_to_stride(long_side, image.width, image.height)
     t = compute_letterbox(image.width, image.height, input_w, input_h)
     draw_w = round(image.width * t.scale)
     draw_h = round(image.height * t.scale)

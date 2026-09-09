@@ -25,7 +25,33 @@
         "mAP50-95": -0.09802,
         "sizeRatio": 3.045
       }
+    },
+    "face-n": {
+      "dataset": "datasets/face-n/dataset.yaml",
+      "split": "val",
+      "imgsz": 640,
+      "note": "Open Images \"Human face\", 1500-image validation split held out from training.",
+      "precisions": {
+        "fp32": {
+          "mAP50-95": 0.63263,
+          "mAP50": 0.87364,
+          "precision": 0.88118,
+          "recall": 0.8312,
+          "bytes": 11279793
+        },
+        "int8": {
+          "mAP50-95": 0.57635,
+          "mAP50": 0.82189,
+          "precision": 0.86539,
+          "recall": 0.7678,
+          "bytes": 3916904
+        }
+      },
+      "int8Delta": {
+        "mAP50-95": -0.05628,
+        "sizeRatio": 2.88
+      }
     }
   },
-  "generatedAt": "2026-09-02T23:11:20+00:00"
+  "generatedAt": "2026-09-09T22:47:16+00:00"
 }

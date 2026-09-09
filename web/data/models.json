@@ -1,6 +1,42 @@
 {
-  "generatedAt": "2026-09-02T23:11:20+00:00",
+  "generatedAt": "2026-09-09T22:47:34+00:00",
   "models": [
+    {
+      "id": "face-n",
+      "variants": [
+        {
+          "precision": "fp32",
+          "file": "/models/face-n-fp32.onnx",
+          "bytes": 11279793,
+          "mAP": 0.63263
+        },
+        {
+          "precision": "int8",
+          "file": "/models/face-n-int8.onnx",
+          "bytes": 3916904,
+          "mAP": 0.57635
+        }
+      ],
+      "name": "Faces (custom)",
+      "domain": "Faces",
+      "description": "YOLO11n fine-tuned on Open Images \"Human face\". Powers the privacy-blur demo, which finds and obscures faces entirely on-device -- the frames never leave the browser, which is the strongest possible version of this project's argument.",
+      "inputSize": 640,
+      "order": 1,
+      "dataset": {
+        "name": "Open Images V5/V7 \u2014 \"Human face\"",
+        "url": "https://storage.googleapis.com/openimages/web/index.html",
+        "license": "Annotations CC BY 4.0 (Google LLC); images CC BY 2.0 (Flickr contributors)."
+      },
+      "sample": {
+        "image": "/samples/coco80-n.jpg",
+        "credit": "Ultralytics test image (bus.jpg)"
+      },
+      "classes": [
+        "face"
+      ],
+      "status": "ready",
+      "dynamicInput": true
+    },
     {
       "id": "coco80-n",
       "variants": [
