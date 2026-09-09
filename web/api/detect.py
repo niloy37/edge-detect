@@ -43,6 +43,7 @@ _labels: list[str] = []
 _input_name = ""
 _load_ms = 0.0
 _served = 0
+_model_source = "unknown"
 
 
 def _find_asset(*relative: str) -> Path | None:
@@ -55,17 +56,38 @@ def _find_asset(*relative: str) -> Path | None:
     return None
 
 
+# Every ONNX file is a protobuf whose first field is ir_version, so it starts 0x08.
+# Cheap sanity check with a specific purpose -- see _fetch_to_tmp.
+_ONNX_MAGIC = b""
+
+
 def _fetch_to_tmp(url: str, name: str) -> Path:
-    """Fall back to pulling the model from the deployment's own static assets."""
+    """Last-resort fallback: pull the model from the deployment's own static assets.
+
+    Validated rather than trusted. Deployment URLs sit behind Vercel's access
+    protection, so an unauthenticated fetch returns an HTML login page with HTTP 200
+    -- which this used to write to /tmp as a .onnx and hand to the runtime, producing
+    "Protobuf parsing failed" a layer away from the actual cause. Fail here, with the
+    reason, instead of there.
+    """
     target = Path("/tmp") / name
-    if not target.exists():
-        with urllib.request.urlopen(url, timeout=20) as response:
-            target.write_bytes(response.read())
+    if target.exists() and target.stat().st_size > 0:
+        return target
+    with urllib.request.urlopen(url, timeout=20) as response:
+        content_type = (response.headers.get("Content-Type") or "").lower()
+        payload = response.read()
+    if "html" in content_type or not payload.startswith(_ONNX_MAGIC):
+        raise RuntimeError(
+            f"{url} did not return an ONNX model (content-type={content_type!r}, "
+            f"{len(payload)} bytes) -- the model was not bundled and the static asset "
+            f"is not publicly readable"
+        )
+    target.write_bytes(payload)
     return target
 
 
 def _load() -> None:
-    global _session, _labels, _input_name, _load_ms
+    global _session, _labels, _input_name, _load_ms, _model_source
     if _session is not None:
         return
 
@@ -80,7 +102,9 @@ def _load() -> None:
 
     filename = f"{MODEL_ID}-{PRECISION}.onnx"
     model_path = _find_asset("public", "models", filename)
+    _model_source = "bundled"
     if model_path is None:
+        _model_source = "fetched"
         host = os.environ.get("VERCEL_URL")
         if not host:
             raise RuntimeError(f"{filename} not bundled and VERCEL_URL unset")
@@ -135,6 +159,7 @@ def run_detection(image_bytes: bytes, score_threshold: float, iou_threshold: flo
             "postprocessMs": round((t3 - t2) * 1000, 2),
             "serverTotalMs": round((t3 - t0) * 1000, 2),
             "requestsServedByThisContainer": _served,
+            "modelSource": _model_source,
         },
     }
 
