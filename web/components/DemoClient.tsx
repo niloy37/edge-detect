@@ -28,6 +28,7 @@ export function DemoClient() {
   const [scoreThreshold, setScoreThreshold] = useState(DEFAULT_DETECT_OPTIONS.scoreThreshold);
   const [iouThreshold, setIouThreshold] = useState(DEFAULT_DETECT_OPTIONS.iouThreshold);
   const [paused, setPaused] = useState(false);
+  const [smoothing, setSmoothing] = useState(true);
   const [renderFps, setRenderFps] = useState(0);
   const [sourceKind, setSourceKind] = useState<SourceChoice>("webcam");
   const [uploadUrl, setUploadUrl] = useState<string | null>(null);
@@ -70,6 +71,7 @@ export function DemoClient() {
     labels,
     ep: ep ?? "wasm",
     inputSize,
+    smoothing,
   });
 
   const options = useMemo(
@@ -245,7 +247,10 @@ export function DemoClient() {
               />
             </Field>
 
-            <Field label="Input size" hint={inputSize + " px"}>
+            <Field
+              label="Input size"
+              hint={stats.inputWidth ? `${stats.inputWidth}x${stats.inputHeight}` : inputSize + " px"}
+            >
               <SegmentedControl
                 segments={INPUT_SIZES.map((size) => ({ value: size, label: String(size) }))}
                 value={inputSize}
@@ -270,6 +275,21 @@ export function DemoClient() {
                 ]}
                 value={epChoice}
                 onChange={setEpChoice}
+              />
+            </Field>
+
+            <Field label="Smoothing" hint={smoothing ? "on" : "off"}>
+              <SegmentedControl
+                segments={[
+                  {
+                    value: "on" as const,
+                    label: "On",
+                    title: "Match boxes across frames by IoU and damp their motion",
+                  },
+                  { value: "off" as const, label: "Off", title: "Raw per-frame output" },
+                ]}
+                value={smoothing ? "on" : "off"}
+                onChange={(value) => setSmoothing(value === "on")}
               />
             </Field>
 

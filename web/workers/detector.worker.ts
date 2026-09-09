@@ -109,8 +109,15 @@ async function detect(request: Extract<WorkerRequest, { type: "frame" }>): Promi
   const t0 = performance.now();
   const { data, transform } = preprocessor.run(request.bitmap);
   request.bitmap.close();
-  const size = preprocessor.inputSize;
-  const tensor = new ort.Tensor("float32", data, [1, 3, size, size]);
+  // Shape comes from the transform, not a fixed square: the preprocessor picks a
+  // stride-aligned shape matching the frame's aspect, and the exported graph has
+  // dynamic H/W so the same weights accept it.
+  const tensor = new ort.Tensor("float32", data, [
+    1,
+    3,
+    transform.inputHeight,
+    transform.inputWidth,
+  ]);
   const t1 = performance.now();
 
   const output = await Promise.race([
@@ -141,7 +148,8 @@ async function detect(request: Extract<WorkerRequest, { type: "frame" }>): Promi
     type: "result",
     seq: request.seq,
     detections,
-    inputSize: size,
+    inputWidth: transform.inputWidth,
+    inputHeight: transform.inputHeight,
     timing: {
       preprocess: t1 - t0,
       inference: t2 - t1,

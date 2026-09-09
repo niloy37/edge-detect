@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { drawDetections } from "@/lib/draw";
+import type { StageOverlay } from "@/lib/draw";
 import { FpsCounter } from "@/lib/telemetry";
 import type { DetectOptions, Detection } from "@/lib/types";
 
@@ -26,6 +27,9 @@ interface Props {
   onRenderFps: (fps: number) => void;
   onSourceError: (message: string | null) => void;
   onSourceReady: () => void;
+  /** How detections are painted. Defaults to labelled boxes; the faces page swaps in
+   *  a blur so the same detector drives a different product. */
+  overlay?: StageOverlay;
 }
 
 /**
@@ -49,6 +53,7 @@ export function DetectorStage({
   onRenderFps,
   onSourceError,
   onSourceReady,
+  overlay,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -56,6 +61,7 @@ export function DetectorStage({
   const rafRef = useRef<number>(0);
   const fpsRef = useRef(new FpsCounter());
   const lastFpsReport = useRef(0);
+  const overlayRef = useRef(overlay);
   const optionsRef = useRef(options);
   const readyRef = useRef(ready);
   const pausedRef = useRef(paused);
@@ -67,6 +73,7 @@ export function DetectorStage({
   const renderFpsRef = useRef(onRenderFps);
   const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null);
 
+  overlayRef.current = overlay;
   optionsRef.current = options;
   readyRef.current = ready;
   pausedRef.current = paused;
@@ -206,7 +213,16 @@ export function DetectorStage({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(media, 0, 0, sourceWidth, sourceHeight);
-    drawDetections(ctx, detectionsRef.current ?? [], 1);
+    const paint = overlayRef.current;
+    if (paint) {
+      paint(ctx, detectionsRef.current ?? [], {
+        source: media,
+        width: sourceWidth,
+        height: sourceHeight,
+      });
+    } else {
+      drawDetections(ctx, detectionsRef.current ?? [], 1);
+    }
 
     fpsRef.current.tick();
     // Report at ~5Hz, not once per animation frame. Calling a React setState 200+

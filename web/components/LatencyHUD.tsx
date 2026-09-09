@@ -59,6 +59,11 @@ export function LatencyHUD({
         <Row label="render fps" value={renderFps > 0 ? renderFps.toFixed(0) : "—"} hint="Canvas redraws per second — decoupled from detection" />
         <Row label="objects" value={String(stats.detectionCount)} hint="Detections surviving NMS in the last frame" />
         <Row
+          label="network input"
+          value={stats.inputWidth ? `${stats.inputWidth}x${stats.inputHeight}` : "—"}
+          hint="Aspect-matched and stride-aligned, not square: a 16:9 frame in a square tensor spends 44% of the compute on grey padding."
+        />
+        <Row
           label="frames sent / dropped"
           value={`${stats.submitted} / ${stats.dropped}`}
           hint="Frames handed to the model, and frames skipped because it was still busy. Dropping is correct: the newest frame is the only one worth running."

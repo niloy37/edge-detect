@@ -65,7 +65,13 @@ export default function SelfTestPage() {
           `transform scale=${transform.scale.toFixed(4)} padX=${transform.padX} padY=${transform.padY}`,
         );
 
-        const tensor = new ort.Tensor("float32", data, [1, 3, 640, 640]);
+        say(`network input ${transform.inputWidth}x${transform.inputHeight} (aspect-matched, stride-aligned)`);
+        const tensor = new ort.Tensor("float32", data, [
+          1,
+          3,
+          transform.inputHeight,
+          transform.inputWidth,
+        ]);
         const out = await session.run({ [session.inputNames[0]]: tensor });
         const raw = out[session.outputNames[0]];
         const values = raw.data as Float32Array;
@@ -84,7 +90,7 @@ export default function SelfTestPage() {
         }
         say(`boxes[min=${boxMin.toFixed(2)} max=${boxMax.toFixed(2)}] scoreMax=${scoreMax.toFixed(5)}`);
         say(
-          `inFP=${data[0].toFixed(4)},${data[400000].toFixed(4)},${data[1228799].toFixed(4)}` +
+          `inFP=${data[0].toFixed(4)},${data[(data.length / 3) | 0].toFixed(4)},${data[data.length - 1].toFixed(4)}` +
             ` | outType=${raw.type} ctor=${values.constructor.name} len=${values.length}` +
             ` | box0=${values[0].toFixed(2)},${values[1].toFixed(2)} score0=${values[4 * anchors].toFixed(4)},${values[4 * anchors + 1].toFixed(4)}`,
         );

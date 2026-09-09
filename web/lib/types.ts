@@ -26,8 +26,10 @@ export interface LetterboxTransform {
   padY: number;
   srcWidth: number;
   srcHeight: number;
-  /** Side length of the square network input. */
-  inputSize: number;
+  /** Network input shape. Not square: it tracks the source aspect so the tensor
+   *  carries image rather than padding. See fitToStride in lib/letterbox.ts. */
+  inputWidth: number;
+  inputHeight: number;
 }
 
 /** Per-frame stage timings, in milliseconds. */

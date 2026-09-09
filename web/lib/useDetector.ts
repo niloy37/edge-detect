@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { suggestedThreadCount } from "./ep";
+import { BoxSmoother } from "./tracker";
 
 /** How long session creation may take before we give up on threads.
  *  Timed from the worker's "creating-session" status, not from worker construction,
@@ -25,6 +26,9 @@ export interface DetectorStats {
   totalP95: number;
   inferenceP50: number;
   detectFps: number;
+  /** The shape the model actually ran at, which tracks the source aspect. */
+  inputWidth: number;
+  inputHeight: number;
   samples: number;
   detectionCount: number;
   /** Frames handed to the model, and frames skipped because it was still busy. */
@@ -40,6 +44,8 @@ const EMPTY_STATS: DetectorStats = {
   totalP95: 0,
   inferenceP50: 0,
   detectFps: 0,
+  inputWidth: 0,
+  inputHeight: 0,
   samples: 0,
   detectionCount: 0,
   submitted: 0,
@@ -51,6 +57,8 @@ export interface UseDetectorArgs {
   labels: string[];
   ep: EPName;
   inputSize: number;
+  /** Damp frame-to-frame box jitter. See lib/tracker.ts. */
+  smoothing: boolean;
 }
 
 /**
@@ -67,7 +75,13 @@ export interface UseDetectorArgs {
  *    frame. Re-rendering a component tree 60 times a second to update a millisecond
  *    readout would itself become the bottleneck being measured.
  */
-export function useDetector({ modelUrl, labels, ep: requestedEp, inputSize }: UseDetectorArgs) {
+export function useDetector({
+  modelUrl,
+  labels,
+  ep: requestedEp,
+  inputSize,
+  smoothing,
+}: UseDetectorArgs) {
   const workerRef = useRef<Worker | null>(null);
   const busyRef = useRef(false);
   const seqRef = useRef(0);
@@ -78,6 +92,12 @@ export function useDetector({ modelUrl, labels, ep: requestedEp, inputSize }: Us
   const totalStats = useRef(new RollingStats(60));
   const inferStats = useRef(new RollingStats(60));
   const lastTiming = useRef<FrameTiming>({ preprocess: 0, inference: 0, postprocess: 0, total: 0 });
+  const lastShape = useRef({ width: 0, height: 0 });
+  const smoother = useRef(new BoxSmoother());
+  // Read inside the worker message handler, so toggling smoothing takes effect on the
+  // next frame instead of tearing down and rebuilding the session.
+  const smoothingRef = useRef(smoothing);
+  smoothingRef.current = smoothing;
   const fps = useRef(new FpsCounter());
 
   const [ready, setReady] = useState(false);
@@ -116,6 +136,7 @@ export function useDetector({ modelUrl, labels, ep: requestedEp, inputSize }: Us
     inferStats.current.reset();
     fps.current.reset();
     detectionsRef.current = [];
+    smoother.current.reset();
     busyRef.current = false;
     submittedRef.current = 0;
     droppedRef.current = 0;
@@ -156,8 +177,11 @@ export function useDetector({ modelUrl, labels, ep: requestedEp, inputSize }: Us
       } else if (message.type === "result") {
         sawResult.current = true;
         busyRef.current = false;
-        detectionsRef.current = message.detections;
+        detectionsRef.current = smoothingRef.current
+          ? smoother.current.update(message.detections)
+          : message.detections;
         lastTiming.current = message.timing;
+        lastShape.current = { width: message.inputWidth, height: message.inputHeight };
         totalStats.current.push(message.timing.total);
         inferStats.current.push(message.timing.inference);
         fps.current.tick();
@@ -221,6 +245,8 @@ export function useDetector({ modelUrl, labels, ep: requestedEp, inputSize }: Us
         totalP95: totalStats.current.p95,
         inferenceP50: inferStats.current.p50,
         detectFps: fps.current.fps,
+        inputWidth: lastShape.current.width,
+        inputHeight: lastShape.current.height,
         samples: totalStats.current.count,
         detectionCount: detectionsRef.current.length,
         submitted: submittedRef.current,

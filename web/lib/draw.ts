@@ -1,5 +1,12 @@
 import type { Detection } from "./types";
 
+/** How a stage paints detections over the frame it just drew. */
+export type StageOverlay = (
+  ctx: CanvasRenderingContext2D,
+  detections: Detection[],
+  frame: { source: CanvasImageSource; width: number; height: number },
+) => void;
+
 /**
  * Stable per-class colour. Hashing the class id to a hue means a "person" is the
  * same colour on every model and every frame without maintaining an 80-entry palette,

@@ -11,6 +11,8 @@ export type WorkerRequest =
       threads: number;
     }
   | { type: "frame"; bitmap: ImageBitmap; seq: number; options: DetectOptions }
+  // The *long* side of the network input. The short side is derived per frame from
+  // the source aspect, so the actual shape is reported back on each result.
   | { type: "setInputSize"; inputSize: number }
   | { type: "dispose" };
 
@@ -45,6 +47,7 @@ export type WorkerResponse =
       seq: number;
       detections: Detection[];
       timing: FrameTiming;
-      inputSize: number;
+      inputWidth: number;
+      inputHeight: number;
     }
   | { type: "error"; message: string; fatal: boolean; code?: "run-timeout" };
